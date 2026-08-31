@@ -120,8 +120,10 @@ player for the whole game. `RULE-TILES-2`
    `RULE-DEAL-2`
 4. Bonus tiles are resolved (§3.3) before the dealer's first discard.
 
-After the deal, **91 tiles remain in the wall** (144 − 52 − 1).
-`RULE-DEAL-3`
+After steps 1–3, **91 tiles remain in the wall** (144 − 52 − 1), or 83 with the
+136-tile set. Step 4 then draws one replacement per revealed bonus tile from the
+tail, so the count entering play is 91 minus the number of bonus tiles revealed
+during the deal — the two always sum to 91. `RULE-DEAL-3`
 
 ### 3.2 Dead wall — **DECISION**
 
@@ -134,6 +136,11 @@ After the deal, **91 tiles remain in the wall** (144 − 52 − 1).
   and 0 tiles remain.
 - **A kong may not be declared if the wall is empty**, because no replacement tile
   could be drawn. The action is illegal and is not offered. `RULE-WALL-2`
+- **Once the wall is empty, a discard may still be won, chowed or punged, but not
+  konged.** A kong needs a replacement tile; a chow or pung does not. The claimant
+  then discards, and the hand ends as an exhaustive draw as soon as any seat must
+  draw, so the exchange is bounded. **DECISION**, recorded because §3.2 and §4.3
+  together left the case undefined. `RULE-DRAW-4`
 
 **Rationale.** HKOS is played to the true end of the wall; the last drawn tile is
 literally the 海底 tile. The Japanese-style fixed 14-tile dead wall is a different
@@ -335,26 +342,24 @@ other pattern is added.
 
 Combinations not listed here **stack**.
 
-| Rule | Effect |
-|---|---|
-| A1 ⊗ A2 | Mutually exclusive by construction (all chows vs all pungs). |
-| A4 excludes A3 | 清一色 is not also 混一色. |
-| A9 excludes A3, A4 | 字一色 has no suit tiles; it is neither a full nor a half flush. |
-| A9 excludes A10, A11 | All Honours is scored as itself. |
-| A10 excludes A11 | 混幺九 requires an honour; 清幺九 forbids one. |
-| A6 excludes A5 | Great Three Dragons is not also Small Three Dragons. |
-| A8 excludes A7 | Great Four Winds is not also Small Four Winds. |
-| A5, A6 **stack with** B1 | The dragon pungs still score 1 each. 小三元 therefore totals 5; 大三元 totals 11 before other patterns. |
-| A7, A8 **stack with** B2, B3 | The seat/round wind pungs still score. |
-| C1 ⊗ C6 | Robbing a kong is a claim, never a self-draw. |
-| C3 ⊗ C4 | One is a draw, the other a discard. |
-| C3 ⊗ C5 | A kong replacement comes from the tail, so it is never the last head tile. |
-| C1 **stacks with** C3, C5 | Both are self-draws. |
-| C7 ⊗ D1, D2 | No Flowers means no bonus tiles at all. |
-| E1–E6 | Replace the entire breakdown. Nothing stacks with a limit hand. |
-| F1 | Replaces the entire breakdown. |
-
-`RULE-FAAN-G1` … `RULE-FAAN-G13`, one per row.
+| ID | Rule | Effect |
+|---|---|---|
+| `RULE-FAAN-G1` | A1 ⊗ A2 | Mutually exclusive by construction (all chows vs all pungs). |
+| `RULE-FAAN-G2` | A4 excludes A3 | 清一色 is not also 混一色. |
+| `RULE-FAAN-G3` | A9 excludes A3, A4 | 字一色 has no suit tiles; it is neither a full nor a half flush. |
+| `RULE-FAAN-G4` | A9 excludes A10, A11 | All Honours is scored as itself. |
+| `RULE-FAAN-G5` | A10 excludes A11 | 混幺九 requires an honour; 清幺九 forbids one. |
+| `RULE-FAAN-G6` | A6 excludes A5 | Great Three Dragons is not also Small Three Dragons. |
+| `RULE-FAAN-G7` | A8 excludes A7 | Great Four Winds is not also Small Four Winds. |
+| `RULE-FAAN-G8` | A5, A6 **stack with** B1 | The dragon pungs still score 1 each. 小三元 therefore totals 5; 大三元 totals 11 before other patterns. |
+| `RULE-FAAN-G9` | A7, A8 **stack with** B2, B3 | The seat/round wind pungs still score. |
+| `RULE-FAAN-G10` | C1 ⊗ C6 | Robbing a kong is a claim, never a self-draw. |
+| `RULE-FAAN-G11` | C3 ⊗ C4 | One is a draw, the other a discard. |
+| `RULE-FAAN-G12` | C1 **stacks with** C3, C5 | Both are self-draws. |
+| `RULE-FAAN-G13` | C7 ⊗ D1, D2 | No Flowers means no bonus tiles at all. |
+| `RULE-FAAN-G14` | C3 ⊗ C5 | A kong replacement comes from the tail, so it is never the last head tile. |
+| `RULE-FAAN-G15` | E1–E6 | Replace the entire breakdown. Nothing stacks with a limit hand. |
+| `RULE-FAAN-G16` | F1 | Replaces the entire breakdown. |
 
 ---
 
@@ -470,12 +475,12 @@ Let `B` be the base points from §7.3.
 
 | Outcome | Discarder / kong-robbed player | Each other loser | Winner receives |
 |---|---|---|---|
-| **Win by discard** (出銃) | `2B` | `1B` | `4B` |
-| **Win by self-draw** (自摸) | — | `2B` each | `6B` |
-| **Robbing a kong** | `2B` (the kong declarer) | `1B` | `4B` |
-| **Instant flower win** (F1, E6) | — | `2B` each | `6B` |
-
-`RULE-PAY-1` … `RULE-PAY-4`
+| Outcome | ID |
+|---|---|
+| **Win by discard** (出銃): discarder `2B`, each other loser `1B`, winner `4B` | `RULE-PAY-1` |
+| **Win by self-draw** (自摸): each loser `2B`, winner `6B` | `RULE-PAY-2` |
+| **Robbing a kong**: the kong declarer pays `2B`, each other loser `1B`, winner `4B` | `RULE-PAY-3` |
+| **Instant flower win** (F1, E6): each loser `2B`, winner `6B` | `RULE-PAY-4` |
 
 **Rationale.** This is 半銃 ("half money"), the most common casual HK settlement: the
 discarder carries double weight but the table shares the loss, which teaches that a
@@ -617,9 +622,23 @@ The public state a seat receives contains:
   the wall.
 - Scores.
 
-It must **never** contain another seat's concealed tiles, the contents or order of the
-wall, or a concealed kong's tile identity (only that a concealed kong exists).
-`RULE-REDACT-1` … `RULE-REDACT-3`
+It must **never** contain:
+
+| | |
+|---|---|
+| another seat's concealed tiles | `RULE-REDACT-1` |
+| the contents or order of the wall | `RULE-REDACT-2` |
+| a concealed kong's tile identity — only that a concealed kong exists | `RULE-REDACT-3` |
+| **which other seats may claim a pending discard or rob a kong** | `RULE-REDACT-5` |
+
+**DECISION on `RULE-REDACT-5`.** Whether a seat can claim a tile is derived from
+its concealed hand: telling the table that seat 2 *may* pung a discarded 5 Dots
+announces that seat 2 holds two of them. A seat is therefore told only whether
+**it** owes a response, never who else does.
+
+Two things are legitimately public and are not redacted: when a hand ends the
+winner's hand goes face up, because §9 requires the itemised breakdown; and the
+promoted tile of an added kong is declared to the table while it can be robbed.
 
 Bots consume exactly this structure. `RULE-REDACT-4`
 
@@ -650,15 +669,19 @@ document. The identifiers are the contract.
 | `RULE-CLAIM-*` | Claim legality and priority | 5 |
 | `RULE-KONG-*` | Kong kinds | 3 |
 | `RULE-ROB-*` | Robbing a kong | 3 |
-| `RULE-FAAN-*` | Faan values, stacking, exclusion | 16 |
+| `RULE-FAAN-*` | Faan values, stacking, exclusion | 19 |
 | `RULE-WIN-*` | Winning structures and declaration | 7 |
 | `RULE-SCORE-*` | Qualifying faan, ceiling, conversion, minimum | 4 |
 | `RULE-PAY-*` | Payment schedule | 6 |
 | `RULE-PROG-*` | Dealer and round progression | 3 |
-| `RULE-DRAW-*` | Exhaustive draw | 3 |
+| `RULE-DRAW-*` | Exhaustive draw | 4 |
 | `RULE-DET-*` | Determinism | 2 |
-| `RULE-REDACT-*` | Information redaction | 4 |
+| `RULE-REDACT-*` | Information redaction | 5 |
 | `RECON-*` | Divergences from `hk-mahjong` | 16 |
+
+`tests/gate/contract-coverage.test.ts` reads this document, extracts every
+identifier, and fails if any of them is not named by at least one test. The index
+above is therefore checked rather than merely asserted.
 
 ---
 

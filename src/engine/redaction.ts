@@ -65,7 +65,22 @@ function pendingAddedKong(state: InternalGameState, phase: AwaitingRobPhase): Ti
   return tile;
 }
 
-function publicPhase(state: InternalGameState): PublicPhase {
+/**
+ * True when this viewer has a pending response. Membership of the responder
+ * list is derived from concealed hands, so it is reported only to its owner.
+ * RULE-REDACT-5
+ */
+function viewerMayRespond(
+  phase: AwaitingClaimsPhase | AwaitingRobPhase,
+  viewer: Seat,
+): boolean {
+  return (
+    phase.responders.includes(viewer) &&
+    !phase.responses.some((response) => response.seat === viewer)
+  );
+}
+
+function publicPhase(state: InternalGameState, viewer: Seat): PublicPhase {
   switch (state.phase.kind) {
     case "awaiting-discard":
       return {
@@ -78,14 +93,14 @@ function publicPhase(state: InternalGameState): PublicPhase {
         kind: "awaiting-claims",
         discarder: state.phase.discarder,
         pendingTile: pendingDiscard(state, state.phase),
-        responders: state.phase.responders,
+        youMayRespond: viewerMayRespond(state.phase, viewer),
       };
     case "awaiting-rob":
       return {
         kind: "awaiting-rob",
         declarer: state.phase.declarer,
         pendingTile: pendingAddedKong(state, state.phase),
-        responders: state.phase.responders,
+        youMayRespond: viewerMayRespond(state.phase, viewer),
       };
     case "hand-ended":
       return { kind: "hand-ended", result: state.phase.result };
@@ -110,6 +125,6 @@ export function projectPublicState(state: InternalGameState, viewer: Seat): Publ
     players,
     wallCount: state.wall.length,
     discards: state.discards,
-    phase: publicPhase(state),
+    phase: publicPhase(state, viewer),
   };
 }

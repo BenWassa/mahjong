@@ -12,7 +12,9 @@
     "lint": "eslint .",
     "test": "vitest",
     "test:run": "vitest run",
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "sim": "tsx src/sim/run.ts",
+    "gate": "vitest run tests/gate"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
