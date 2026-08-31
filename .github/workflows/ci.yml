@@ -15,7 +15,7 @@ concurrency:
 jobs:
   check:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -31,3 +31,9 @@ jobs:
 
       - name: Run quality gate
         run: npm run check
+
+      - name: Run the widened correctness gate
+        # The default run keeps `npm run check` fast for local use; CI widens it.
+        run: npm run gate
+        env:
+          MAHJONG_GATE_GAMES: 1500

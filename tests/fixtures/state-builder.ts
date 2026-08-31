@@ -1,5 +1,5 @@
 import { assertGameInvariants } from "../../src/engine/invariants.js";
-import { createTileSet } from "../../src/engine/tiles.js";
+import { createTileSet, isBonusTile } from "../../src/engine/tiles.js";
 import type {
   Discard,
   GameEvent,
@@ -156,17 +156,23 @@ export function buildTestState(options: TestStateOptions = {}): InternalGameStat
   const wallHead = (options.wallHead ?? []).map((kind) => take(kind, "wall head"));
   const wallTail = (options.wallTail ?? []).map((kind) => take(kind, "wall tail"));
   const remaining = [...available.values()].flat();
+  // Tiles pushed out of a shortened wall become historical discards, which is
+  // where they would be on a real table late in a hand. Bonus tiles are never
+  // discarded (RULE-FLOWER-3), so they always stay in the wall and a wall count
+  // that cannot hold them is rejected rather than silently corrupting the state.
+  const remainingBonuses = remaining.filter((tile) => isBonusTile(tile));
+  const remainingOrdinary = remaining.filter((tile) => !isBonusTile(tile));
   const requestedWallCount = options.wallCount ??
     wallHead.length + remaining.length + wallTail.length;
-  const reservedCount = wallHead.length + wallTail.length;
-  if (requestedWallCount < reservedCount || requestedWallCount > reservedCount + remaining.length) {
+  const reservedCount = wallHead.length + wallTail.length + remainingBonuses.length;
+  if (requestedWallCount < reservedCount || requestedWallCount > reservedCount + remainingOrdinary.length) {
     throw new RangeError(
-      `Wall count ${String(requestedWallCount)} cannot contain ${String(reservedCount)} reserved tiles and ${String(remaining.length)} remaining tiles`,
+      `Wall count ${String(requestedWallCount)} cannot contain ${String(reservedCount)} reserved tiles (including ${String(remainingBonuses.length)} bonus tiles) and ${String(remainingOrdinary.length)} remaining tiles`,
     );
   }
   const middleCount = requestedWallCount - reservedCount;
-  const wall = [...wallHead, ...remaining.slice(0, middleCount), ...wallTail];
-  const discardedRemainder = remaining.slice(middleCount);
+  const wall = [...wallHead, ...remainingBonuses, ...remainingOrdinary.slice(0, middleCount), ...wallTail];
+  const discardedRemainder = remainingOrdinary.slice(middleCount);
   const priorDiscards: Discard[] = [...explicitDiscards, ...claimedDiscards];
   for (const [offset, tile] of discardedRemainder.entries()) {
     const index = priorDiscards.length;

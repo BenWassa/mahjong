@@ -335,13 +335,20 @@ export type PublicPhase =
       readonly kind: "awaiting-claims";
       readonly discarder: Seat;
       readonly pendingTile: Tile;
-      readonly responders: readonly Seat[];
+      /**
+       * Whether the viewing seat still owes a response. The full responder list
+       * stays inside the engine: it is derived from concealed hands, so telling
+       * one seat that another *can* claim a tile would leak what that opponent
+       * holds. RULE-REDACT-5
+       */
+      readonly youMayRespond: boolean;
     }
   | {
       readonly kind: "awaiting-rob";
       readonly declarer: Seat;
       readonly pendingTile: Tile;
-      readonly responders: readonly Seat[];
+      /** As above: a robbing responder is by definition waiting on this tile. */
+      readonly youMayRespond: boolean;
     }
   | { readonly kind: "hand-ended"; readonly result: HandResult }
   | { readonly kind: "match-ended"; readonly result: HandResult };

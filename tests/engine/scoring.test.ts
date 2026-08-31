@@ -293,6 +293,16 @@ describe("HKOS scoring patterns", () => {
     expect(ids(score({ concealed: COMMON_HAND, source: "self-draw" }))).toContain("C1");
   });
 
+  it("RULE-FAAN-C1: 門前清 and 自摸 stack as two items rather than one named pattern", () => {
+    // A fully concealed self-draw is 2 faan, itemised so the breakdown names
+    // both facts instead of collapsing them into 不求人.
+    const scoring = score({ concealed: COMMON_HAND, source: "self-draw" });
+    expect(ids(scoring)).toContain("C1");
+    expect(ids(scoring)).toContain("C2");
+    const circumstance = scoring.items.filter((item) => item.id === "C1" || item.id === "C2");
+    expect(circumstance.reduce((sum, item) => sum + item.faan, 0)).toBe(2);
+  });
+
   it("C2 Fully Concealed Hand permits a concealed kong", () => {
     const scoring = score({
       concealed: [
@@ -375,7 +385,7 @@ describe("HKOS scoring patterns", () => {
     expect(ids(scoring)).toContain("D1-season-1");
   });
 
-  it("E1 Thirteen Orphans replaces the entire breakdown at 13 faan", () => {
+  it("E1 and RULE-FAAN-G15: Thirteen Orphans replaces the entire breakdown at 13 faan", () => {
     const scoring = score({ concealed: [
       "characters-1", "characters-9", "bamboo-1", "bamboo-9", "dots-1", "dots-9",
       "wind-east", "wind-south", "wind-west", "wind-north",
@@ -429,7 +439,7 @@ describe("HKOS scoring patterns", () => {
     expect(ids(scoring)).toEqual(["E5"]);
   });
 
-  it("E6 Eight Immortals and F1 Seven Flowers replace every ordinary scoring item", () => {
+  it("E6, F1 and RULE-FAAN-G16: bonus-tile wins replace every ordinary scoring item", () => {
     const baseContext = {
       profile: PROFILE_144,
       player: player([], [], ["flower-1", "flower-2", "flower-3", "flower-4", "season-1", "season-2", "season-3"]),

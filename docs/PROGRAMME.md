@@ -13,7 +13,7 @@ tracker.
 | Rules contract | #2 — V1.1 Lock Hong Kong Old Style rules contract | **Done** — [`HKOS_RULES.md`](HKOS_RULES.md) |
 | Engine | #3 — V1.2 Deterministic headless engine core and game record | Requires #2 |
 | Scoring | #4 — V1.3 Integrate and reconcile Hong Kong faan scoring | Requires #2–#3 |
-| Correctness | #5 — V1.4 Invariant test corpus and seeded simulation | **Hard gate before visual work** |
+| Correctness | #5 — V1.4 Invariant test corpus and seeded simulation | **Done** — `tests/gate/`, `src/sim/` |
 | Bots | #6 — V1.5 Competent non-cheating heuristic bots | Requires engine/scoring/gate |
 | Interaction | #7 — V1.6 Real-phone interaction prototype | Requires correctness gate |
 | Presentation | #8 — V1.7 Production table, SVG tiles and tactile presentation | Requires gate + interaction |
@@ -40,7 +40,7 @@ Until V1 is complete, do not add multiplayer, network services, accounts, teleme
 | #2 Rules contract | Complete |
 | #3 Engine core | Complete |
 | #4 Scoring | Not started |
-| #5 Correctness gate | Not started |
+| #5 Correctness gate | Complete |
 | #6 Bots | Not started |
 | #7 Interaction prototype | Not started |
 | #8 Production table | Not started |
