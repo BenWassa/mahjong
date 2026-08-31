@@ -6,20 +6,18 @@ A clean, modern Hong Kong Old Style Mahjong game for mobile. Offline-first, rule
 
 **V1 build in progress.**
 
-The programme is running in dependency order through issues #2–#11. The rules contract
-is locked; engine, scoring and correctness work follow before any production UI.
+Rules, engine, scoring and the correctness gate are complete. Bots are next; production interaction and presentation follow only after the correctness gate.
 
 ## V1
 
-Single-player Hong Kong Old Style Mahjong against three heuristic bots, fully offline on Android. Landscape table, traditional SVG tiles, tap-tap discard, contextual learning aids, clear faan scoring, local persistence, and no network features.
+Single-player Hong Kong Old Style Mahjong against three heuristic bots, shipped as an installable offline PWA and a Capacitor Android app from the same React + Vite codebase. Landscape table, traditional SVG tiles, tap-tap discard, contextual learning aids, clear faan scoring, local persistence, and no backend or runtime network dependency.
 
 ## Source of truth
 
 - [Hong Kong Old Style rules contract](docs/HKOS_RULES.md) — authoritative for all rules and scoring
 - [V1 Product Requirements Document](docs/PRD.md)
-- [V1 Programme Map](docs/PROGRAMME.md)
+- [V1 Programme Map](docs/PROGRAMME.md) — includes the PWA delivery amendment
 - [V1 engine architecture](docs/ENGINE_ARCHITECTURE.md)
 - [Parent programme issue](../../issues/1)
 
-Where code, a dependency, or the in-app rules reference disagrees with
-`docs/HKOS_RULES.md`, the document wins and the other side is a bug.
+Where code, a dependency, or the in-app rules reference disagrees with `docs/HKOS_RULES.md`, the document wins and the other side is a bug.
