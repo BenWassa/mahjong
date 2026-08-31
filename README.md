@@ -6,7 +6,7 @@ A clean, modern Hong Kong Old Style Mahjong game for mobile. Offline-first, rule
 
 **V1 build in progress.**
 
-Rules, engine, scoring and the correctness gate are complete. Bots are next; production interaction and presentation follow only after the correctness gate.
+Rules, engine, scoring, the correctness gate and deterministic heuristic bots are complete. Production interaction and presentation follow only after the correctness gate.
 
 ## V1
 
@@ -18,6 +18,7 @@ Single-player Hong Kong Old Style Mahjong against three heuristic bots, shipped 
 - [V1 Product Requirements Document](docs/PRD.md)
 - [V1 Programme Map](docs/PROGRAMME.md) — includes the PWA delivery amendment
 - [V1 engine architecture](docs/ENGINE_ARCHITECTURE.md)
+- [V1 heuristic bot design and evaluation](docs/BOTS.md)
 - [Parent programme issue](../../issues/1)
 
 Where code, a dependency, or the in-app rules reference disagrees with `docs/HKOS_RULES.md`, the document wins and the other side is a bug.

@@ -64,7 +64,8 @@ export class SimulationFailure extends Error {
   }
 }
 
-function uniformChooser(random: DeterministicRandom): ActionChooser {
+/** Uniform legal-action baseline used by the correctness gate and bot benchmarks. */
+export function randomActionChooser(random: DeterministicRandom): ActionChooser {
   return (actions): GameAction => {
     const choice = actions[random.nextInt(actions.length)];
     if (choice === undefined) {
@@ -93,7 +94,7 @@ export function simulateMatch(seed: string, options: SimulationOptions = {}): Si
   const profile = options.profile ?? DEFAULT_RULES_PROFILE;
   const maxSteps = options.maxSteps ?? 20_000;
   const random = createSeededRandom(options.actionSeed ?? `choices:${seed}`);
-  const chooser = options.chooser ?? uniformChooser(random);
+  const chooser = options.chooser ?? randomActionChooser(random);
 
   let state = createInitialGame(seed, profile);
   let steps = 0;
