@@ -1,119 +1,111 @@
-# Issue #5 pre-#4 correctness audit and rule coverage
+# Issue #5 correctness audit and rule coverage
 
-This file is the mechanical coverage ledger for Issue #5. `docs/HKOS_RULES.md` remains authoritative.
-
-This branch deliberately does **not** decide scoring semantics. Identifiers whose expected result requires faan detection, stacking/exclusion, qualifying-vs-total faan, payment, or minimum-faan legality remain blocked on Issue #4. After #4 merges, this branch must be rebased and every blocked or split row must be reconciled against the merged focused scoring tests before #5 can merge.
+`docs/HKOS_RULES.md` is authoritative. This ledger records where each `RULE-*` and `RECON-*` contract identifier is exercised after Issue #4 merged. Issue #5 does not reinterpret scoring expectations; it maps the locked contract to the tests already accepted in #3/#4 and adds only mechanical correctness coverage.
 
 ## Issue #3 audit
 
-The merged #3 engine already covers deal shape, ordinary turn progression, Chow restriction, claim priority, Kong transitions, added-Kong robbery, structural wins, dealer/round progression, deterministic adapter replay, and public-state redaction.
+The merged #3 engine already covered deal shape, ordinary turn progression, Chow restriction, claim priority, Kong transitions, added-Kong robbery, structural wins, dealer/round progression, deterministic adapter replay, and public-state redaction.
 
-The pre-#4 gaps addressed mechanically by this branch are:
+Issue #5 adds the mechanical gaps found by that audit:
 
-- no exhaustive machine-checked inventory of the rules-contract identifiers;
-- no explicit coverage for bonus ownership rotation, bonus replacement chains, empty-wall Kong suppression, multiple-Win nearest-seat resolution, the physical impossibility behind conflicting Pung/Kong claims, concealed-Kong non-robbability, optional winning, instant seven/eight bonus-tile termination, and concealed-Kong identity redaction;
-- invariants did not verify canonical tile ID/kind agreement, seat tuple identity, discard-ledger indexing/claim consistency, or action-record indexing;
-- replay tests covered bounded action prefixes rather than complete seeded games;
-- no seeded complete-game simulation gate printed the reproduction seed and complete action history on failure;
-- CI did not set an agreed simulation count.
+- exhaustive machine-checked enumeration of all 84 rules-contract identifiers;
+- focused coverage for bonus ownership rotation, bonus replacement chains, empty-wall Kong suppression, multiple-Win nearest-seat resolution, the physical impossibility behind conflicting Pung/Kong claims, concealed-Kong non-robbability, optional winning, instant seven/eight bonus-tile termination, and concealed-Kong identity redaction;
+- stronger invariants for canonical tile ID/kind agreement, seat tuple identity, discard-ledger indexing/claim consistency, action-record indexing, and illegal bonus placement;
+- deterministic complete-game simulation through the merged scored engine, across minimum-faan profiles 0/1/3 and both tile-set profiles;
+- exact replay verification plus reproduction seed, profile, phase, and full action history on failure;
+- routine CI plumbing with a fixed 2,000-game simulation corpus.
 
-No new rules interpretation is introduced here. Scoring-dependent portions of mechanically testable rules are marked **split with #4** rather than inferred.
+No scoring semantics are introduced here. Scoring-dependent expectations below point to the focused tests merged with #4.
 
 ## Coverage ledger
 
-| Identifier | Pre-#4 status | Explicit coverage / post-#4 action |
-|---|---|---|
-| `RULE-TILES-1` | Split with #4 | `mechanical-contracts.test.ts` proves the 136 inventory has no bonus tiles. After #4, verify bonus-related scoring items are omitted, not zero-valued. |
-| `RULE-TILES-2` | Covered | `mechanical-contracts.test.ts` rotates dealer/seat wind and checks flower/season ownership. |
-| `RULE-DEAL-1` | Covered in #3 | `core-transitions.test.ts` checks the deterministic traditional deal record. |
-| `RULE-DEAL-2` | Covered in #3 | `core-transitions.test.ts` checks dealer 14 / others 13 after the ordinary deal. |
-| `RULE-DEAL-3` | Covered in #3 | `core-transitions.test.ts` checks post-deal conservation and wall/bonus accounting. |
-| `RULE-WALL-1` | Covered in #3 | `core-transitions.test.ts` exercises true wall exhaustion with no reserved dead wall. |
-| `RULE-WALL-2` | Covered | `mechanical-contracts.test.ts` suppresses concealed/exposed Kong actions at an empty wall. |
-| `RULE-FLOWER-1` | Covered | `mechanical-contracts.test.ts` forces a multi-bonus replacement chain from the wall tail. |
-| `RULE-FLOWER-2` | Covered | `mechanical-contracts.test.ts` checks dealer-first seat ordering during initial bonus resolution. |
-| `RULE-FLOWER-3` | Covered | `mechanical-contracts.test.ts` proves resolved bonus tiles remain out of concealed/discard actions. |
-| `RULE-FLOWER-4` | Covered | `mechanical-contracts.test.ts` forces a bonus draw with no replacement and expects exhaustive draw. |
-| `RULE-TURN-1` | Covered in #3 | `core-transitions.test.ts` checks automatic next draw and direct discard after claims. |
-| `RULE-CLAIM-1` | Covered in #3 | `core-transitions.test.ts` offers Chow only to the next seat. |
-| `RULE-CLAIM-2` | Covered in #3 | `core-transitions.test.ts` checks Pung/Kong over Chow and Win over Pung under the pre-#4 zero-minimum structural path. |
-| `RULE-CLAIM-3` | Covered | `mechanical-contracts.test.ts` submits two Wins in reverse priority order and verifies nearest seat wins. |
-| `RULE-CLAIM-4` | Covered | `mechanical-contracts.test.ts` proves the conflicting Pung/Kong premise requires a fifth physical copy. |
-| `RULE-CLAIM-5` | Covered in #3 | `core-transitions.test.ts` proves no claim prompt is created when nothing is claimable. |
-| `RULE-KONG-1` | Covered in #3 | `core-transitions.test.ts` covers concealed/exposed Kong replacement from the tail. |
-| `RULE-KONG-2` | Split with #4 | #3 covers concealed Kong exposure mechanics; after #4, verify it still qualifies as fully concealed for scoring. |
-| `RULE-KONG-3` | Covered in #3 | `core-transitions.test.ts` checks in-place exposed Pung promotion to added Kong. |
-| `RULE-ROB-1` | Split with #4 | #3 covers added-Kong robbery state/payment source metadata; after #4, verify the scoring/payment consequences. |
-| `RULE-ROB-2` | Covered | `mechanical-contracts.test.ts` uses a Thirteen-Orphans wait and proves concealed Kong never opens a robbery phase. |
-| `RULE-ROB-3` | Covered in #3 | `core-transitions.test.ts` checks successful robbery restores the exposed Pung and cancels the Kong event. |
-| `RULE-FAAN-B1` | Blocked on #4 | Reconcile to merged scoring test for simultaneous seat-wind + round-wind faan. |
-| `RULE-FAAN-C1` | Blocked on #4 | Reconcile to merged scoring test for self-draw + fully concealed stacking. |
-| `RULE-FAAN-D1` | Blocked on #4 | Reconcile to merged scoring test for own bonus vs complete-set replacement. |
-| `RULE-FAAN-G1` | Blocked on #4 | Reconcile to merged focused stacking/exclusion row 1 test. |
-| `RULE-FAAN-G2` | Blocked on #4 | Reconcile to merged focused stacking/exclusion row 2 test. |
-| `RULE-FAAN-G3` | Blocked on #4 | Reconcile to merged focused stacking/exclusion row 3 test. |
-| `RULE-FAAN-G4` | Blocked on #4 | Reconcile to merged focused stacking/exclusion row 4 test. |
-| `RULE-FAAN-G5` | Blocked on #4 | Reconcile to merged focused stacking/exclusion row 5 test. |
-| `RULE-FAAN-G6` | Blocked on #4 | Reconcile to merged focused stacking/exclusion row 6 test. |
-| `RULE-FAAN-G7` | Blocked on #4 | Reconcile to merged focused stacking/exclusion row 7 test. |
-| `RULE-FAAN-G8` | Blocked on #4 | Reconcile to merged focused stacking/exclusion row 8 test. |
-| `RULE-FAAN-G9` | Blocked on #4 | Reconcile to merged focused stacking/exclusion row 9 test. |
-| `RULE-FAAN-G10` | Blocked on #4 | Reconcile to merged focused stacking/exclusion row 10 test. |
-| `RULE-FAAN-G11` | Blocked on #4 | Reconcile to merged focused stacking/exclusion row 11 test. |
-| `RULE-FAAN-G12` | Blocked on #4 | Reconcile to merged focused stacking/exclusion row 12 test. |
-| `RULE-FAAN-G13` | Blocked on #4 | Reconcile to merged focused stacking/exclusion row 13 test. |
-| `RULE-WIN-1` | Covered in #3 | `winning.test.ts` checks standard and Thirteen-Orphans structures. |
-| `RULE-WIN-2` | Covered in #3 | `winning.test.ts` rejects Seven Pairs and unrelated excluded shapes. |
-| `RULE-WIN-3` | Covered in #3 | `winning.test.ts` verifies Nine Gates decomposes as standard structure. |
-| `RULE-WIN-4` | Split with #4 | #3 proves deterministic decomposition enumeration. After #4, verify scorer chooses highest-faan decomposition and deterministic tie break. |
-| `RULE-WIN-5` | Split with #4 | `mechanical-contracts.test.ts` proves seven/eight bonus-tile immediate termination without structural hand. After #4, verify 3-faan/limit settlement. |
-| `RULE-WIN-6` | Covered | `mechanical-contracts.test.ts` proves a legal structural Win can be declined by choosing a discard. |
-| `RULE-WIN-7` | Blocked on #4 | Minimum-faan legality must be tested only against the merged scorer. |
-| `RULE-SCORE-1` | Blocked on #4 | Reconcile qualifying-vs-total faan test after #4. |
-| `RULE-SCORE-2` | Blocked on #4 | Reconcile 13-faan ceiling/limit representation test after #4. |
-| `RULE-SCORE-3` | Blocked on #4 | Reconcile faan-to-base-points conversion test after #4. |
-| `RULE-SCORE-4` | Blocked on #4 | Reconcile 0/1/3 minimum-faan profiles after #4. |
-| `RULE-PAY-1` | Blocked on #4 | Reconcile discard-win settlement test after #4. |
-| `RULE-PAY-2` | Blocked on #4 | Reconcile self-draw settlement test after #4. |
-| `RULE-PAY-3` | Blocked on #4 | Reconcile robbed-Kong settlement test after #4. |
-| `RULE-PAY-4` | Blocked on #4 | Reconcile instant-flower settlement test after #4. |
-| `RULE-PAY-5` | Blocked on #4 | Reconcile absence of dealer multiplier after #4. |
-| `RULE-PAY-6` | Blocked on #4 | Reconcile zero-start/negative-score accounting after #4. |
-| `RULE-PROG-1` | Covered in #3 | `core-transitions.test.ts` checks dealer continuation only after dealer win. |
-| `RULE-PROG-2` | Covered in #3 | `core-transitions.test.ts` checks East-round termination. |
-| `RULE-PROG-3` | Covered in #3 | `core-transitions.test.ts` checks return-to-round-starter progression semantics. |
-| `RULE-DRAW-1` | Covered in #3 | `core-transitions.test.ts` verifies exhaustive draw makes no score changes. |
-| `RULE-DRAW-2` | Covered in #3 | `core-transitions.test.ts` verifies dealer rotates after exhaustive draw. |
-| `RULE-DRAW-3` | Covered in #3 | `core-transitions.test.ts` explicitly locks the draw-rotation divergence. |
-| `RULE-DET-1` | Covered + simulation | Existing adapter replay plus `seeded-simulation.test.ts` verify exact complete-game replay from seed + actions. |
-| `RULE-DET-2` | Covered | `seeded-simulation.test.ts` derives an independent bot-action seed and leaves the wall seed untouched. |
-| `RULE-REDACT-1` | Covered in #3 | `adapter-replay-redaction.test.ts` shows only the viewer's concealed hand. |
-| `RULE-REDACT-2` | Covered in #3 | `adapter-replay-redaction.test.ts` exposes wall count but not contents/order. |
-| `RULE-REDACT-3` | Covered + strengthened | Existing trusted-record boundary plus `mechanical-contracts.test.ts` explicitly hide opponent concealed-Kong identity. |
-| `RULE-REDACT-4` | Covered in #3 | `adapter-replay-redaction.test.ts` verifies every seat receives the same public schema. |
-| `RECON-1` | Blocked on #4 | Reconcile default/selectable minimum-faan regression. |
-| `RECON-2` | Blocked on #4 | Reconcile Small Three Dragons itemised breakdown regression. |
-| `RECON-3` | Blocked on #4 | Reconcile Great Three Dragons non-flat-limit regression. |
-| `RECON-4` | Blocked on #4 | Reconcile Small Four Winds stacking regression. |
-| `RECON-5` | Blocked on #4 | Reconcile Great Four Winds stacking regression. |
-| `RECON-6` | Blocked on #4 | Reconcile All Honours 10-faan stacking regression. |
-| `RECON-7` | Blocked on #4 | Reconcile Mixed Terminals & Honours value regression. |
-| `RECON-8` | Blocked on #4 | Reconcile All Terminals value/stacking regression. |
-| `RECON-9` | Blocked on #4 | Reconcile absence of concealed-all-triplets named limit. |
-| `RECON-10` | Blocked on #4 | Reconcile Kong-replacement + self-draw itemisation regression. |
-| `RECON-11` | Blocked on #4 | Reconcile absence of second-consecutive-Kong named limit. |
-| `RECON-12` | Blocked on #4 | Reconcile Last Discard pattern regression. |
-| `RECON-13` | Blocked on #4 | Reconcile unconditional No Flowers regression. |
-| `RECON-14` | Blocked on #4 | Reconcile All One Suit rejection for all-honours hands. |
-| `RECON-15` | Blocked on #4 | Reconcile flower exclusion from qualifying faan. |
-| `RECON-16` | Blocked on #4 | Reconcile payment implementation against the locked contract. |
+| Identifier | Explicit executable coverage |
+|---|---|
+| `RULE-TILES-1` | `mechanical-contracts.test.ts`; scoring profile behavior in `scoring.test.ts`. |
+| `RULE-TILES-2` | `mechanical-contracts.test.ts`. |
+| `RULE-DEAL-1` | `core-transitions.test.ts`. |
+| `RULE-DEAL-2` | `core-transitions.test.ts`. |
+| `RULE-DEAL-3` | `core-transitions.test.ts`. |
+| `RULE-WALL-1` | `core-transitions.test.ts`. |
+| `RULE-WALL-2` | `mechanical-contracts.test.ts`. |
+| `RULE-FLOWER-1` | `mechanical-contracts.test.ts`. |
+| `RULE-FLOWER-2` | `mechanical-contracts.test.ts`. |
+| `RULE-FLOWER-3` | `mechanical-contracts.test.ts`. |
+| `RULE-FLOWER-4` | `mechanical-contracts.test.ts`. |
+| `RULE-TURN-1` | `core-transitions.test.ts`. |
+| `RULE-CLAIM-1` | `core-transitions.test.ts`. |
+| `RULE-CLAIM-2` | `core-transitions.test.ts`. |
+| `RULE-CLAIM-3` | `mechanical-contracts.test.ts`. |
+| `RULE-CLAIM-4` | `mechanical-contracts.test.ts`. |
+| `RULE-CLAIM-5` | `core-transitions.test.ts` and scored minimum-faan claim regression in `scored-core.test.ts`. |
+| `RULE-KONG-1` | `core-transitions.test.ts`. |
+| `RULE-KONG-2` | transition coverage in `core-transitions.test.ts`; concealed-scoring behavior in `scoring.test.ts`. |
+| `RULE-KONG-3` | `core-transitions.test.ts`. |
+| `RULE-ROB-1` | transition coverage in `core-transitions.test.ts`; scoring/payment coverage in `scoring.test.ts`. |
+| `RULE-ROB-2` | `mechanical-contracts.test.ts`. |
+| `RULE-ROB-3` | `core-transitions.test.ts`. |
+| `RULE-FAAN-B1` | `scoring.test.ts` seat-wind + round-wind stacking regression. |
+| `RULE-FAAN-C1` | `scoring.test.ts` self-draw / fully-concealed stacking coverage. |
+| `RULE-FAAN-D1` | `scoring.test.ts` D1/D2 replacement coverage. |
+| `RULE-FAAN-G1` | `scoring.test.ts` A1/A2 exclusion coverage. |
+| `RULE-FAAN-G2` | `scoring.test.ts` A4/A3 exclusion coverage. |
+| `RULE-FAAN-G3` | `scoring.test.ts` All Honours flush exclusion coverage. |
+| `RULE-FAAN-G4` | `scoring.test.ts` All Honours terminal/honour exclusion coverage. |
+| `RULE-FAAN-G5` | `scoring.test.ts` A10/A11 exclusion coverage. |
+| `RULE-FAAN-G6` | `scoring.test.ts` A6/A5 exclusion coverage. |
+| `RULE-FAAN-G7` | `scoring.test.ts` A8/A7 exclusion coverage. |
+| `RULE-FAAN-G8` | `scoring.test.ts` dragon-pattern + B1 stacking coverage. |
+| `RULE-FAAN-G9` | `scoring.test.ts` wind-pattern + B2/B3 stacking coverage. |
+| `RULE-FAAN-G10` | `scoring.test.ts` robbed-Kong/self-draw exclusion coverage. |
+| `RULE-FAAN-G11` | `scoring.test.ts` last-wall/last-discard exclusion coverage. |
+| `RULE-FAAN-G12` | `scoring.test.ts` last-wall/Kong-replacement incompatibility coverage. |
+| `RULE-FAAN-G13` | `scoring.test.ts` self-draw stacking and No-Flowers incompatibility coverage. |
+| `RULE-WIN-1` | `winning.test.ts`. |
+| `RULE-WIN-2` | `winning.test.ts`. |
+| `RULE-WIN-3` | `winning.test.ts`. |
+| `RULE-WIN-4` | structural enumeration in `winning.test.ts`; highest-faan selection in `scoring.test.ts`. |
+| `RULE-WIN-5` | mechanical instant termination in `mechanical-contracts.test.ts`; F1/E6 scoring in `scoring.test.ts`. |
+| `RULE-WIN-6` | `mechanical-contracts.test.ts`. |
+| `RULE-WIN-7` | scored legal-action filtering in `scored-core.test.ts`. |
+| `RULE-SCORE-1` | `scoring.test.ts` qualifying-vs-total faan regression. |
+| `RULE-SCORE-2` | `scoring.test.ts` 13-faan ceiling regression. |
+| `RULE-SCORE-3` | `scoring.test.ts` base-points conversion regression. |
+| `RULE-SCORE-4` | `scoring.test.ts` and `scored-core.test.ts` 0/1/3 minimum-faan regressions. |
+| `RULE-PAY-1` | `scoring.test.ts` plus integrated settlement in `scored-core.test.ts`. |
+| `RULE-PAY-2` | `scoring.test.ts` plus existing-score settlement in `scored-core.test.ts`. |
+| `RULE-PAY-3` | `scoring.test.ts` robbed-Kong payment regression. |
+| `RULE-PAY-4` | `scoring.test.ts` instant-flower payment regression. |
+| `RULE-PAY-5` | `scoring.test.ts` no-dealer-multiplier regression. |
+| `RULE-PAY-6` | `scored-core.test.ts` zero-start/negative-score settlement regression. |
+| `RULE-PROG-1` | `core-transitions.test.ts`. |
+| `RULE-PROG-2` | `core-transitions.test.ts`. |
+| `RULE-PROG-3` | `core-transitions.test.ts`. |
+| `RULE-DRAW-1` | `core-transitions.test.ts`. |
+| `RULE-DRAW-2` | `core-transitions.test.ts`. |
+| `RULE-DRAW-3` | `core-transitions.test.ts`. |
+| `RULE-DET-1` | adapter replay tests plus complete-game `seeded-simulation.test.ts`. |
+| `RULE-DET-2` | `seeded-simulation.test.ts` uses an independent action-selection seed. |
+| `RULE-REDACT-1` | `adapter-replay-redaction.test.ts`. |
+| `RULE-REDACT-2` | `adapter-replay-redaction.test.ts`. |
+| `RULE-REDACT-3` | `adapter-replay-redaction.test.ts` plus explicit concealed-Kong regression in `mechanical-contracts.test.ts`. |
+| `RULE-REDACT-4` | `adapter-replay-redaction.test.ts`. |
+| `RECON-1` | `scoring.test.ts` and `scored-core.test.ts` minimum-faan regressions. |
+| `RECON-2` | `scoring.test.ts` Small Three Dragons itemisation regression. |
+| `RECON-3` | `scoring.test.ts` Great Three Dragons regression. |
+| `RECON-4` | `scoring.test.ts` Small Four Winds regression. |
+| `RECON-5` | `scoring.test.ts` Great Four Winds regression. |
+| `RECON-6` | `scoring.test.ts` All Honours regression. |
+| `RECON-7` | `scoring.test.ts` Mixed Terminals & Honours regression. |
+| `RECON-8` | `scoring.test.ts` All Terminals regression. |
+| `RECON-9` | `scoring.test.ts` concealed all-triplets non-limit regression. |
+| `RECON-10` | `scoring.test.ts` Kong-replacement + self-draw regression. |
+| `RECON-11` | `scoring.test.ts` no second-consecutive-Kong limit regression. |
+| `RECON-12` | `scoring.test.ts` Last Discard regression. |
+| `RECON-13` | `scoring.test.ts` No Flowers regression. |
+| `RECON-14` | `scoring.test.ts` all-honours/All-One-Suit exclusion regression. |
+| `RECON-15` | `scoring.test.ts` bonus-faan qualifying exclusion regression. |
+| `RECON-16` | `scoring.test.ts` and `scored-core.test.ts` payment regressions. |
 
-## Post-#4 merge gate
+## Merge gate
 
-Before this PR can be made mergeable:
-
-1. Rebase onto the merged #4 `main`.
-2. Replace every **blocked on #4** row with the exact merged focused test location; add missing tests rather than changing expected rules.
-3. Complete the scoring-dependent half of every **split with #4** row.
-4. Run the complete Issue #5 gate with the CI simulation count.
-5. Keep any ambiguity as an explicit blocker; do not infer a rule that is not stated by `docs/HKOS_RULES.md`.
+Issue #5 is mergeable only when this branch is based on the merged #4 `main`, the 84-identifier executable-coverage gate passes, and the full CI gate—including the fixed seeded complete-game corpus—passes without changing the locked expectations in `docs/HKOS_RULES.md`.
