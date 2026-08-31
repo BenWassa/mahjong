@@ -1,14 +1,16 @@
 # Mahjong V1 Programme
 
-> **Status: PLANNED / PAUSED. Do not implement until explicitly started.**
+> **Status: IN PROGRESS.** Started 2026-08-31.
 
-The authoritative product definition is [`PRD.md`](PRD.md). GitHub Issue #1 is the parent programme tracker.
+The authoritative product definition is [`PRD.md`](PRD.md). The authoritative rules
+definition is [`HKOS_RULES.md`](HKOS_RULES.md). GitHub Issue #1 is the parent programme
+tracker.
 
 ## Dependency-ordered work
 
 | Stage | Issue | Gate |
 |---|---|---|
-| Rules contract | #2 — V1.1 Lock Hong Kong Old Style rules contract | Blocks all engine work |
+| Rules contract | #2 — V1.1 Lock Hong Kong Old Style rules contract | **Done** — [`HKOS_RULES.md`](HKOS_RULES.md) |
 | Engine | #3 — V1.2 Deterministic headless engine core and game record | Requires #2 |
 | Scoring | #4 — V1.3 Integrate and reconcile Hong Kong faan scoring | Requires #2–#3 |
 | Correctness | #5 — V1.4 Invariant test corpus and seeded simulation | **Hard gate before visual work** |
@@ -31,6 +33,17 @@ The authoritative product definition is [`PRD.md`](PRD.md). GitHub Issue #1 is t
 
 Until V1 is complete, do not add multiplayer, network services, accounts, telemetry, cloud storage, ads, monetisation, 3D/WebGL, characters, ranks, achievements, Riichi, or other mahjong variants.
 
-## Start condition
+## Progress
 
-The project starts only when the author explicitly authorises implementation. At that point begin with #2, not with application scaffolding or UI.
+| Issue | State |
+|---|---|
+| #2 Rules contract | Complete |
+| #3 Engine core | Not started |
+| #4 Scoring | Not started |
+| #5 Correctness gate | Not started |
+| #6 Bots | Not started |
+| #7 Interaction prototype | Not started |
+| #8 Production table | Not started |
+| #9 Learning layer | Not started |
+| #10 Persistence | Not started |
+| #11 Android | Not started |
