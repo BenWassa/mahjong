@@ -292,8 +292,9 @@ function pendingResponders(state: InternalGameState): readonly Seat[] {
   if (state.phase.kind !== "awaiting-claims" && state.phase.kind !== "awaiting-rob") {
     return [];
   }
-  return state.phase.responders.filter(
-    (seat) => !state.phase.responses.some((response) => response.seat === seat),
+  const phase = state.phase;
+  return phase.responders.filter(
+    (seat) => !phase.responses.some((response) => response.seat === seat),
   );
 }
 
