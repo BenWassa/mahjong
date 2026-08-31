@@ -1,17 +1,17 @@
 import { describe, expect, it } from "vitest";
 
 import { MahjongGame, replayGame } from "../../src/engine/adapter.js";
-import {
-  createInitialGame,
-  legalActionsFor,
-  legalSystemActions,
-  reduceGame,
-} from "../../src/engine/core.js";
 import { assertGameInvariants } from "../../src/engine/invariants.js";
 import {
   createSeededRandom,
   type DeterministicRandom,
 } from "../../src/engine/random.js";
+import {
+  createInitialGame,
+  legalActionsFor,
+  legalSystemActions,
+  reduceGame,
+} from "../../src/engine/scored-core.js";
 import type {
   GameAction,
   InternalGameState,
@@ -20,6 +20,7 @@ import type {
 } from "../../src/engine/types.js";
 
 const SEATS: readonly Seat[] = [0, 1, 2, 3];
+const MINIMUM_FAAN_PROFILES = [0, 1, 3] as const;
 const MAX_ACTIONS_PER_GAME = 10_000;
 const SIMULATION_TIMEOUT_MS = 180_000;
 
@@ -114,6 +115,7 @@ function formatFailure(
       `Seeded simulation failure: ${message}`,
       `seed=${seed}`,
       `botSeed=${botSeed}`,
+      `profile=${JSON.stringify(state.config)}`,
       `handIndex=${String(state.handIndex)}`,
       `phase=${state.phase.kind}`,
       `actionCount=${String(history.length)}`,
@@ -125,7 +127,7 @@ function formatFailure(
 }
 
 function runCompleteGame(seed: string, profile: RulesProfile): InternalGameState {
-  // RULE-DET-2: bot action selection uses its own seed and therefore cannot alter the wall seed.
+  // RULE-DET-2: action selection uses its own seed and therefore cannot alter the wall seed.
   const botSeed = `${seed}::bot`;
   const random = createSeededRandom(botSeed);
   let state = createInitialGame(seed, profile);
@@ -181,14 +183,18 @@ function simulationCount(): number {
 
 describe("seeded complete-game simulation gate", () => {
   it(
-    "RULE-DET-1 RULE-DET-2 completes and exactly replays every seeded game",
+    "RULE-DET-1 RULE-DET-2 completes and exactly replays every seeded scored game",
     () => {
       const count = simulationCount();
 
       for (let index = 0; index < count; index += 1) {
+        const minimumFaan = MINIMUM_FAAN_PROFILES[index % MINIMUM_FAAN_PROFILES.length];
+        if (minimumFaan === undefined) {
+          throw new Error("Simulation profile rotation produced no minimum-faan value");
+        }
         const profile: RulesProfile = {
           tileSetSize: index % 2 === 0 ? 136 : 144,
-          minimumFaan: 0,
+          minimumFaan,
           matchLength: "single-hand",
         };
         const seed = `issue-5-simulation-${String(index)}`;
