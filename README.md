@@ -15,5 +15,7 @@ Single-player Hong Kong Old Style Mahjong against three heuristic bots, fully of
 ## Source of truth
 
 - [V1 Product Requirements Document](docs/PRD.md)
+- [V1 Programme Map](docs/PROGRAMME.md)
+- [Parent programme issue](../../issues/1)
 
-The first implementation task, when authorised, is to write `docs/HKOS_RULES.md` and resolve the scoring/rules contract before engine code begins.
+The first implementation task, when authorised, is Issue #2: write `docs/HKOS_RULES.md` and resolve the scoring/rules contract before engine code begins.
