@@ -11,7 +11,7 @@ tracker.
 | Stage | Issue | Gate |
 |---|---|---|
 | Rules contract | #2 — V1.1 Lock Hong Kong Old Style rules contract | **Done** — [`HKOS_RULES.md`](HKOS_RULES.md) |
-| Engine | #3 — V1.2 Deterministic headless engine core and game record | Requires #2 |
+| Engine | #3 — V1.2 Deterministic headless engine core and game record | **Done** — `src/engine/` |
 | Scoring | #4 — V1.3 Integrate and reconcile Hong Kong faan scoring | Requires #2–#3 |
 | Correctness | #5 — V1.4 Invariant test corpus and seeded simulation | **Hard gate before visual work** |
 | Bots | #6 — V1.5 Competent non-cheating heuristic bots | Requires engine/scoring/gate |
@@ -38,7 +38,7 @@ Until V1 is complete, do not add multiplayer, network services, accounts, teleme
 | Issue | State |
 |---|---|
 | #2 Rules contract | Complete |
-| #3 Engine core | Not started |
+| #3 Engine core | Complete |
 | #4 Scoring | Not started |
 | #5 Correctness gate | Not started |
 | #6 Bots | Not started |

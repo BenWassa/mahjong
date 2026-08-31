@@ -120,8 +120,10 @@ player for the whole game. `RULE-TILES-2`
    `RULE-DEAL-2`
 4. Bonus tiles are resolved (§3.3) before the dealer's first discard.
 
-After the deal, **91 tiles remain in the wall** (144 − 52 − 1).
-`RULE-DEAL-3`
+After steps 1–3, **91 tiles remain in the wall** (144 − 52 − 1), or 83 with the
+136-tile set. Step 4 then draws one replacement per revealed bonus tile from the
+tail, so the count entering play is 91 minus the number of bonus tiles revealed
+during the deal. `RULE-DEAL-3`
 
 ### 3.2 Dead wall — **DECISION**
 
@@ -134,6 +136,10 @@ After the deal, **91 tiles remain in the wall** (144 − 52 − 1).
   and 0 tiles remain.
 - **A kong may not be declared if the wall is empty**, because no replacement tile
   could be drawn. The action is illegal and is not offered. `RULE-WALL-2`
+- **Once the wall is empty, the only legal claim on a discard is Win.** Chow, Pung
+  and Kong are not offered: the hand ends after that discard either way, so
+  melding it could only produce a degenerate exchange with no draws left.
+  `RULE-DRAW-4`
 
 **Rationale.** HKOS is played to the true end of the wall; the last drawn tile is
 literally the 海底 tile. The Japanese-style fixed 14-tile dead wall is a different

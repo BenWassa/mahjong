@@ -1,0 +1,17 @@
+{
+  "name": "mahjong",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Offline Hong Kong Old Style Mahjong",
+  "license": "UNLICENSED",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.8"
+  }
+}
