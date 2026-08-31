@@ -4,9 +4,10 @@ A clean, modern Hong Kong Old Style Mahjong game for mobile. Offline-first, rule
 
 ## Status
 
-**Planning complete. Implementation intentionally not started.**
+**V1 build in progress.**
 
-The repository is loaded with the V1 product plan and issue programme, but no application code, dependencies, engine, assets, or implementation branches should be added until the project is explicitly started.
+The programme is running in dependency order through issues #2–#11. The rules contract
+is locked; engine, scoring and correctness work follow before any production UI.
 
 ## V1
 
@@ -14,8 +15,10 @@ Single-player Hong Kong Old Style Mahjong against three heuristic bots, fully of
 
 ## Source of truth
 
+- [Hong Kong Old Style rules contract](docs/HKOS_RULES.md) — authoritative for all rules and scoring
 - [V1 Product Requirements Document](docs/PRD.md)
 - [V1 Programme Map](docs/PROGRAMME.md)
 - [Parent programme issue](../../issues/1)
 
-The first implementation task, when authorised, is Issue #2: write `docs/HKOS_RULES.md` and resolve the scoring/rules contract before engine code begins.
+Where code, a dependency, or the in-app rules reference disagrees with
+`docs/HKOS_RULES.md`, the document wins and the other side is a bug.
