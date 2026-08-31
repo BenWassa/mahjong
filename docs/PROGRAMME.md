@@ -25,7 +25,7 @@ This amendment supersedes any PRD wording that implies Android is the only V1 de
 | Engine | #3 — V1.2 Deterministic headless engine core and game record | **Done** — PR #13 |
 | Scoring | #4 — V1.3 Integrate and reconcile Hong Kong faan scoring | **Done** — PR #14 |
 | Correctness | #5 — V1.4 Invariant test corpus and seeded simulation | **Done** — PR #17, `tests/gate/`, `src/sim/` |
-| Bots | #6 — V1.5 Competent non-cheating heuristic bots | Requires engine/scoring/gate |
+| Bots | #6 — V1.5 Competent non-cheating heuristic bots | **Done** — public-state policy + seeded benchmark |
 | Interaction | #7 — V1.6 Real-phone interaction prototype | Requires correctness gate |
 | Presentation + PWA | #8 — V1.7 Production table, SVG tiles, tactile presentation and installable PWA | Requires gate + interaction |
 | Learning | #9 — V1.8 Contextual learning, assist and rules reference | Requires production table |
@@ -52,7 +52,7 @@ Until V1 is complete, do not add multiplayer, network services, accounts, teleme
 | #3 Engine core | Complete |
 | #4 Scoring | Complete |
 | #5 Correctness gate | Complete |
-| #6 Bots | Next |
+| #6 Bots | Complete |
 | #7 Interaction prototype | Not started |
 | #8 Production table + PWA | Not started |
 | #9 Learning layer | Not started |
