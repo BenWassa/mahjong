@@ -109,7 +109,10 @@ function tripletKinds(sets: readonly ScoringSet[]): ReadonlySet<OrdinaryTileKind
 
 function completeBonusSet(player: PlayerState, prefix: "flower" | "season"): boolean {
   const kinds = new Set(player.bonuses.map((bonus) => bonus.kind));
-  return [1, 2, 3, 4].every((index) => kinds.has(`${prefix}-${String(index)}`));
+  const expected = prefix === "flower"
+    ? ["flower-1", "flower-2", "flower-3", "flower-4"] as const
+    : ["season-1", "season-2", "season-3", "season-4"] as const;
+  return expected.every((kind) => kinds.has(kind));
 }
 
 function fullConcealedKinds(context: ScoreContext): readonly OrdinaryTileKind[] {
@@ -128,10 +131,14 @@ function isNineGates(context: ScoreContext, structure: WinningStructure): boolea
     return false;
   }
   const kinds = fullConcealedKinds(context);
-  if (kinds.length !== 14 || kinds.some((kind) => !isSuitedKind(kind))) {
+  if (kinds.length !== 14) {
     return false;
   }
-  const parsed = kinds.map((kind) => parseSuitedKind(kind));
+  const suitedKinds = kinds.filter(isSuitedKind);
+  if (suitedKinds.length !== 14) {
+    return false;
+  }
+  const parsed = suitedKinds.map((kind) => parseSuitedKind(kind));
   const suit = parsed[0]?.suit;
   if (suit === undefined || parsed.some((entry) => entry.suit !== suit)) {
     return false;
@@ -321,15 +328,15 @@ function circumstanceItems(context: ScoreContext): readonly FaanItem[] {
   if (context.player.melds.every((meld) => meld.exposure === "concealed")) {
     items.push(item("C2", "Fully Concealed Hand", "門前清", 1));
   }
-  if (context.circumstances.lastWallTile) {
+  if (context.source === "self-draw" && context.circumstances.lastWallTile) {
     items.push(item("C3", "Win on Last Wall Tile", "海底撈月", 1));
   }
-  if (context.circumstances.lastDiscard) {
+  if (context.source === "discard" && context.circumstances.lastDiscard) {
     // RECON-12: 河底撈魚 is explicitly present in V1 although absent from hk-mahjong.
     items.push(item("C4", "Win on Last Discard", "河底撈魚", 1));
   }
   if (context.source === "kong-replacement") {
-    // RECON-10/11: one faan, stacking with self-draw; consecutive kongs add no extra pattern.
+    // RECON-10 / RECON-11: one faan, stacking with self-draw; consecutive kongs add no extra pattern.
     items.push(item("C5", "Win on Kong Replacement", "槓上開花", 1));
   }
   if (context.source === "robbed-kong") {
@@ -380,10 +387,15 @@ function scoreStructure(context: ScoreContext, structure: WinningStructure): Faa
   if (isAllKongs(context, structure)) {
     return limitBreakdown(context, "E3", "All Kongs", "十八羅漢");
   }
-  if (context.circumstances.openingDealerHand) {
+  if (context.circumstances.openingDealerHand && context.winner === context.dealer) {
     return limitBreakdown(context, "E4", "Heavenly Hand", "天糊");
   }
-  if (context.circumstances.dealerFirstDiscard) {
+  if (
+    context.circumstances.dealerFirstDiscard &&
+    context.source === "discard" &&
+    context.winner !== context.dealer &&
+    context.fromSeat === context.dealer
+  ) {
     return limitBreakdown(context, "E5", "Earthly Hand", "地糊");
   }
 
@@ -429,6 +441,6 @@ export function meetsMinimumFaan(
   scoring: FaanBreakdown,
   profile: RulesProfile,
 ): boolean {
-  // RECON-1/15: configurable 0/1/3 minimum, using the bonus-excluded qualifying total.
+  // RECON-1 / RECON-15: configurable 0/1/3 minimum, using the bonus-excluded qualifying total.
   return scoring.qualifyingFaan >= profile.minimumFaan;
 }
