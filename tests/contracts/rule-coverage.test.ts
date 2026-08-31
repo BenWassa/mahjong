@@ -59,16 +59,6 @@ function collectTestSources(directory: string): string {
   return chunks.join("\n");
 }
 
-function isIssue4Owned(identifier: string): boolean {
-  return (
-    identifier.startsWith("RULE-FAAN-") ||
-    identifier.startsWith("RULE-SCORE-") ||
-    identifier.startsWith("RULE-PAY-") ||
-    identifier.startsWith("RECON-") ||
-    identifier === "RULE-WIN-7"
-  );
-}
-
 describe("HKOS rules-contract coverage ledger", () => {
   it("enumerates all 84 RULE-* and RECON-* identifiers from docs/HKOS_RULES.md", () => {
     const rules = readFileSync(RULES_PATH, "utf8");
@@ -89,23 +79,12 @@ describe("HKOS rules-contract coverage ledger", () => {
     expect(ledgerIdentifiers).toEqual(identifiers);
   });
 
-  it("requires every non-#4 identifier to appear in an executable focused test", () => {
+  it("requires every contract identifier to appear in executable test source", () => {
     const rules = readFileSync(RULES_PATH, "utf8");
     const testSources = collectTestSources(TESTS_PATH);
-    const identifiers = contractIdentifiers(rules).filter((identifier) => !isIssue4Owned(identifier));
-
-    for (const identifier of identifiers) {
-      expect(testSources, `Missing executable coverage marker ${identifier}`).toContain(identifier);
-    }
-  });
-
-  it("keeps scoring semantics explicitly delegated to Issue #4 before rebase", () => {
-    const rules = readFileSync(RULES_PATH, "utf8");
     const identifiers = contractIdentifiers(rules);
-    const issue4Owned = identifiers.filter(isIssue4Owned);
+    const missing = identifiers.filter((identifier) => !testSources.includes(identifier));
 
-    expect(issue4Owned).toHaveLength(43);
-    expect(issue4Owned).toContain("RULE-WIN-7");
-    expect(issue4Owned).toContain("RECON-16");
+    expect(missing, `Missing executable coverage markers: ${missing.join(", ")}`).toEqual([]);
   });
 });
