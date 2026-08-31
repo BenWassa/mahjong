@@ -8,7 +8,6 @@ import {
   evaluateWinningHand,
   meetsMinimumFaan,
   scoreInstantBonusWin,
-  type ScoreContext,
 } from "./scoring.js";
 import type {
   AwaitingClaimsPhase,
@@ -17,14 +16,27 @@ import type {
   Discard,
   GameAction,
   GameRecord,
-  HandResult,
   InternalGameState,
+  PlayerState,
   RulesProfile,
   Seat,
   Tile,
   WinHandResult,
+  Wind,
 } from "./types.js";
 import { IllegalActionError } from "./types.js";
+
+interface ScoreContext {
+  readonly profile: RulesProfile;
+  readonly player: PlayerState;
+  readonly winner: Seat;
+  readonly dealer: Seat;
+  readonly roundWind: Wind;
+  readonly source: WinHandResult["source"];
+  readonly fromSeat: Seat | null;
+  readonly winningTile: Tile | null;
+  readonly circumstances: WinHandResult["circumstances"];
+}
 
 function structuralProfile(profile: RulesProfile): RulesProfile {
   return profile.minimumFaan === 0 ? profile : { ...profile, minimumFaan: 0 };
@@ -266,10 +278,11 @@ function stripAutomaticPass(
   after: InternalGameState,
   profile: RulesProfile,
 ): InternalGameState {
+  const restored = withProfile(after, profile);
   return {
-    ...withProfile(after, profile),
+    ...restored,
     record: {
-      ...withProfile(after, profile).record,
+      ...restored.record,
       actions: before.record.actions,
     },
   };
