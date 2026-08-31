@@ -38,7 +38,7 @@ Until V1 is complete, do not add multiplayer, network services, accounts, teleme
 | Issue | State |
 |---|---|
 | #2 Rules contract | Complete |
-| #3 Engine core | Not started |
+| #3 Engine core | Complete |
 | #4 Scoring | Not started |
 | #5 Correctness gate | Not started |
 | #6 Bots | Not started |

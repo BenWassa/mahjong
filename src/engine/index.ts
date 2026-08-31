@@ -1,0 +1,25 @@
+export { MahjongGame, ReplayMismatchError, newGame, replayGame } from "./adapter.js";
+export type {
+  BonusTileKind,
+  FaanBreakdown,
+  FaanItem,
+  GameAction,
+  GameRecord,
+  HandResult,
+  MatchLength,
+  MinimumFaan,
+  OrdinaryTileKind,
+  PublicGameState,
+  PublicMeld,
+  PublicPlayerState,
+  RulesProfile,
+  Seat,
+  Tile,
+  TileId,
+  TileKind,
+  TileSetSize,
+  WinSource,
+  WinningStructure,
+  Wind,
+} from "./types.js";
+export { DEFAULT_RULES_PROFILE, IllegalActionError } from "./types.js";
