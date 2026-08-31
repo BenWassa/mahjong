@@ -18,6 +18,7 @@ Single-player Hong Kong Old Style Mahjong against three heuristic bots, fully of
 - [Hong Kong Old Style rules contract](docs/HKOS_RULES.md) — authoritative for all rules and scoring
 - [V1 Product Requirements Document](docs/PRD.md)
 - [V1 Programme Map](docs/PROGRAMME.md)
+- [V1 engine architecture](docs/ENGINE_ARCHITECTURE.md)
 - [Parent programme issue](../../issues/1)
 
 Where code, a dependency, or the in-app rules reference disagrees with
