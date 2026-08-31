@@ -26,7 +26,7 @@ This amendment supersedes any PRD wording that implies Android is the only V1 de
 | Scoring | #4 — V1.3 Integrate and reconcile Hong Kong faan scoring | **Done** — PR #14 |
 | Correctness | #5 — V1.4 Invariant test corpus and seeded simulation | **Done** — PR #17, `tests/gate/`, `src/sim/` |
 | Bots | #6 — V1.5 Competent non-cheating heuristic bots | **Done** — public-state policy + seeded benchmark |
-| Interaction | #7 — V1.6 Real-phone interaction prototype | Requires correctness gate |
+| Interaction | #7 — V1.6 Real-phone interaction prototype | **Awaiting device gate** — [`INTERACTION_PROTOTYPE.md`](INTERACTION_PROTOTYPE.md), `prototype/` |
 | Presentation + PWA | #8 — V1.7 Production table, SVG tiles, tactile presentation and installable PWA | Requires gate + interaction |
 | Learning | #9 — V1.8 Contextual learning, assist and rules reference | Requires production table |
 | Persistence | #10 — V1.9 Local persistence, resume and basic stats | Requires game records + UI |
@@ -53,7 +53,7 @@ Until V1 is complete, do not add multiplayer, network services, accounts, teleme
 | #4 Scoring | Complete |
 | #5 Correctness gate | Complete |
 | #6 Bots | Complete |
-| #7 Interaction prototype | Not started |
+| #7 Interaction prototype | Built, awaiting the real-phone verdict |
 | #8 Production table + PWA | Not started |
 | #9 Learning layer | Not started |
 | #10 Persistence | Not started |

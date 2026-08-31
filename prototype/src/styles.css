@@ -1,0 +1,787 @@
+/*
+ * Issue #7 interaction prototype.
+ *
+ * Palette values come from the PRD §8 token list. They are here because
+ * legibility is a contrast question — bone faces on jade felt is the contrast
+ * the device gate has to judge — not because this is production styling. There
+ * are no textures, no gradients on tiles, no animation beyond the selection
+ * lift, and no artwork. Production presentation is #8.
+ */
+
+:root {
+  --table-felt: #14342a;
+  --table-felt-deep: #0e2620;
+  --table-edge: #0a1a15;
+
+  --tile-face: #f4ebd9;
+  --tile-face-lit: #fff8ea;
+  --tile-edge: #d9cbb0;
+  --tile-shadow: rgba(0, 0, 0, 0.35);
+  --tile-back: #2e6b52;
+
+  --ink: #1c1a17;
+  --vermillion: #c3282d;
+  --bamboo-green: #2e7d4f;
+  --cobalt: #2b4c7e;
+
+  --brass: #b08d3f;
+  --text-on-felt: #ede5d5;
+  --text-muted: #9dafa4;
+
+  --rail-w: 132px;
+  --band-h: 66px;
+
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overscroll-behavior: none;
+}
+
+body {
+  background: var(--table-edge);
+  color: var(--text-on-felt);
+  font-family: system-ui, -apple-system, "Noto Sans", "Noto Sans CJK SC", "Noto Sans SC",
+    sans-serif;
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#root {
+  height: 100dvh;
+}
+
+/* ---------------------------------------------------------------- layout -- */
+
+.app {
+  display: grid;
+  /* `minmax(0, 1fr)`, not `1fr`: a fixed-size hand that does not fit must scroll
+     inside its own row, never widen the app and silently stop re-fitting when
+     the phone is rotated. */
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto 1fr auto;
+  height: 100dvh;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
+    env(safe-area-inset-left);
+  overflow: hidden;
+}
+
+.table {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  gap: 4px;
+  padding: 4px 6px 0;
+}
+
+/* Right rail: claim controls sit beside the felt, so the hand is narrower. */
+.app--rail .table {
+  grid-template-columns: minmax(0, 1fr) var(--rail-w);
+}
+
+.app--rail .handbar {
+  padding-right: calc(var(--rail-w) + 6px);
+}
+
+/* Band: claim controls sit above the hand, so the hand keeps the full width. */
+.app--band .table {
+  grid-template-rows: 1fr var(--band-h);
+}
+
+.table__felt {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 5px 7px;
+  border-radius: 8px;
+  background: var(--table-felt);
+  border: 1px solid var(--table-edge);
+  overflow: hidden;
+}
+
+.probe {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.3;
+  color: var(--text-muted);
+}
+
+.probe strong {
+  color: var(--text-on-felt);
+}
+
+/* --------------------------------------------------------------- top bar -- */
+
+.topbar {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  border-bottom: 2px solid transparent;
+  background: var(--table-edge);
+}
+
+.topbar--discard {
+  border-bottom-color: var(--brass);
+}
+
+.topbar--claim {
+  border-bottom-color: var(--vermillion);
+}
+
+.topbar__nav {
+  display: flex;
+  gap: 3px;
+}
+
+.topbar__turn {
+  margin: 0;
+  flex: 1 1 auto;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.topbar--discard .topbar__turn {
+  color: var(--brass);
+}
+
+.topbar--claim .topbar__turn {
+  color: var(--vermillion);
+}
+
+.topbar--waiting .topbar__turn {
+  color: var(--text-muted);
+}
+
+.topbar__meta {
+  display: flex;
+  min-width: 0;
+  overflow: hidden;
+  flex-direction: column;
+  align-items: flex-end;
+  font-size: 10px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.topbar__stat.is-bad {
+  color: var(--vermillion);
+  font-weight: 700;
+}
+
+.topbar__actions {
+  display: flex;
+  gap: 4px;
+}
+
+.portrait-note {
+  margin: 0;
+  padding: 4px 8px;
+  background: var(--vermillion);
+  color: #fff;
+  font-size: 11px;
+}
+
+/* ------------------------------------------------------------ table body -- */
+
+.tabletop {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-height: 0;
+  flex: 1 1 auto;
+}
+
+.tabletop__opponents {
+  display: flex;
+  gap: 6px;
+  justify-content: space-between;
+}
+
+.opponent {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 5px;
+  border-radius: 5px;
+  border: 1px solid transparent;
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.opponent.is-active {
+  border-color: var(--brass);
+  color: var(--text-on-felt);
+}
+
+.opponent__concealed {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.opponent__count {
+  font-variant-numeric: tabular-nums;
+}
+
+.tabletop__centre {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  flex: 1 1 auto;
+}
+
+.well {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  max-width: 60%;
+  padding: 4px;
+  border-radius: 6px;
+  background: var(--table-felt-deep);
+}
+
+.focus {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: var(--table-felt-deep);
+  border: 1px solid var(--brass);
+}
+
+.focus__from {
+  margin: 0;
+  font-size: 10px;
+  color: var(--brass);
+}
+
+.tabletop__mine {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.meld {
+  display: inline-flex;
+  gap: 1px;
+}
+
+/* ----------------------------------------------------------------- tiles -- */
+
+.tile {
+  display: block;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  touch-action: manipulation;
+  user-select: none;
+  flex: 0 0 auto;
+}
+
+.tile__face {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  border-radius: 4px;
+  background: var(--tile-face);
+  border: 1px solid var(--tile-edge);
+  border-bottom-width: 2px;
+  color: var(--ink);
+  overflow: hidden;
+}
+
+.tile--hand {
+  width: var(--tile-w);
+  height: var(--tile-h);
+  transition: transform 90ms ease-out;
+}
+
+.tile--meld {
+  width: 22px;
+  height: 29px;
+}
+
+.tile--pile {
+  width: 18px;
+  height: 24px;
+}
+
+/* The offered tile is the subject of the decision, so it is never smaller than
+   a tile in the hand. */
+.tile--focus {
+  width: 58px;
+  height: 77px;
+}
+
+.tile--back .tile__face,
+.tile--back {
+  background: var(--tile-back);
+  border-radius: 4px;
+  border: 1px solid var(--table-edge);
+}
+
+.ink--ink .tile__face {
+  color: var(--ink);
+}
+
+.ink--vermillion .tile__face {
+  color: var(--vermillion);
+}
+
+.ink--bamboo-green .tile__face {
+  color: var(--bamboo-green);
+}
+
+.ink--cobalt .tile__face {
+  color: var(--cobalt);
+}
+
+.tile__glyphs {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1;
+}
+
+.tile__glyph {
+  font-size: calc(var(--tile-w, 40px) * 0.62);
+  font-weight: 600;
+}
+
+.tile__sub {
+  font-size: calc(var(--tile-w, 40px) * 0.3);
+  color: var(--vermillion);
+}
+
+.tile--meld .tile__glyph,
+.tile--pile .tile__glyph {
+  font-size: 13px;
+}
+
+.tile--meld .tile__sub,
+.tile--pile .tile__sub {
+  font-size: 7px;
+}
+
+.tile--focus .tile__glyph {
+  font-size: 34px;
+}
+
+.tile--focus .tile__sub {
+  font-size: 16px;
+}
+
+.tile__label {
+  position: absolute;
+  top: 1px;
+  left: 2px;
+  font-size: calc(var(--tile-w, 40px) * 0.19);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  color: var(--ink);
+  opacity: 0.5;
+}
+
+.tile--pile .tile__label,
+.tile--meld .tile__label {
+  display: none;
+}
+
+/* pips ------------------------------------------------------------------- */
+
+.pips {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 10%;
+  width: 78%;
+  height: 76%;
+}
+
+.pips__row {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8%;
+  flex: 1 1 0;
+  min-height: 0;
+}
+
+.pip {
+  background: currentColor;
+  flex: 0 0 auto;
+}
+
+.pips--dot .pip {
+  width: min(calc(74% / var(--pip-cols)), 9px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+}
+
+.pips--stick .pip {
+  width: min(calc(52% / var(--pip-cols)), 5px);
+  height: 74%;
+  border-radius: 2px;
+}
+
+/* --------------------------------------------------------------- the hand -- */
+
+/*
+ * Turn ownership is carried by the bar's own edge, never by dimming the tiles:
+ * during a claim the hand holds the tiles the decision depends on, so it has to
+ * stay at full legibility even while it is inert to taps.
+ */
+.handbar {
+  min-width: 0;
+  padding: 2px 6px 4px;
+  background: var(--table-edge);
+  border-top: 3px solid #26332d;
+}
+
+.handbar:has(.hand--active) {
+  border-top-color: var(--brass);
+}
+
+.hand__row {
+  display: flex;
+  min-width: 0;
+  align-items: flex-end;
+  gap: var(--tile-gap);
+  padding-top: 14px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.hand__row::-webkit-scrollbar {
+  display: none;
+}
+
+.tile.is-detached {
+  margin-left: max(20px, calc(var(--tile-gap) * 4));
+}
+
+.tile.is-selected {
+  transform: translateY(-13px);
+}
+
+.tile.is-selected .tile__face {
+  background: var(--tile-face-lit);
+  border-color: var(--brass);
+  box-shadow: 0 4px 0 -1px var(--brass), 0 6px 10px var(--tile-shadow);
+}
+
+.tile.is-decision .tile__face {
+  outline: 2px dashed var(--vermillion);
+  outline-offset: -2px;
+}
+
+.hand--active .tile__face {
+  box-shadow: 0 2px 4px var(--tile-shadow);
+}
+
+.hand__overflow {
+  margin: 2px 0 0;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--vermillion);
+}
+
+.handbar__hint {
+  margin: 2px 0 0;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+/* ------------------------------------------------------- claim controls -- */
+
+.claims {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+}
+
+.claims--rail {
+  flex-direction: column;
+  justify-content: flex-start;
+  padding: 6px 4px;
+  min-width: var(--rail-w);
+}
+
+.claims--band {
+  flex-direction: row;
+  justify-content: flex-start;
+  padding: 0 6px;
+  min-height: var(--band-h);
+}
+
+.claims.is-live {
+  border-radius: 8px;
+  background: var(--table-felt-deep);
+  border: 1px solid var(--brass);
+}
+
+.claim {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  min-width: 62px;
+  min-height: 46px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--tile-edge);
+  background: var(--tile-face);
+  color: var(--ink);
+  font: inherit;
+  touch-action: manipulation;
+}
+
+.claims--rail .claim {
+  width: 100%;
+}
+
+.claim__glyph {
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.claim__gloss {
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.claim__detail {
+  font-size: 10px;
+  color: #6b6257;
+}
+
+.claim--win {
+  background: var(--vermillion);
+  border-color: #8e1d21;
+  color: #fff;
+}
+
+.claim--win .claim__detail {
+  color: #ffd9da;
+}
+
+.claim--pass {
+  background: transparent;
+  border-style: dashed;
+  border-color: var(--text-muted);
+  color: var(--text-muted);
+}
+
+/* Win is never adjacent to Pass: this spacer holds them apart in both layouts. */
+.claims__separator {
+  flex: 1 1 auto;
+}
+
+.claims--rail .claims__separator {
+  min-height: 26px;
+}
+
+.claims--band .claims__separator {
+  min-width: 32px;
+}
+
+/* -------------------------------------------------------------- chrome ---- */
+
+.chip {
+  min-height: 30px;
+  min-width: 30px;
+  padding: 3px 8px;
+  border-radius: 5px;
+  border: 1px solid #35544a;
+  background: #15291f;
+  color: var(--text-on-felt);
+  font: inherit;
+  font-size: 12px;
+  touch-action: manipulation;
+}
+
+.chip.is-on {
+  background: var(--brass);
+  border-color: var(--brass);
+  color: #1b1508;
+  font-weight: 700;
+}
+
+.chip--warn {
+  border-color: var(--vermillion);
+  color: #ffb9ba;
+}
+
+.chip--primary {
+  background: var(--brass);
+  border-color: var(--brass);
+  color: #1b1508;
+  font-weight: 700;
+}
+
+.chip--count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.resolution {
+  position: fixed;
+  left: 50%;
+  bottom: calc(env(safe-area-inset-bottom) + 6px);
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: #10231c;
+  border: 1px solid var(--brass);
+  font-size: 12px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
+}
+
+/* ------------------------------------------------------- settings panel --- */
+
+.panel {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  background: #0b1a15;
+  overflow: hidden;
+}
+
+.panel__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  border-bottom: 1px solid #24413a;
+}
+
+.panel__head h1 {
+  margin: 0;
+  font-size: 14px;
+}
+
+.panel__body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 8px 10px 20px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 10px 18px;
+  align-content: start;
+}
+
+.panel h2 {
+  margin: 0 0 5px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--brass);
+}
+
+.choice {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 5px;
+  flex-wrap: wrap;
+}
+
+.choice__label {
+  font-size: 11px;
+  color: var(--text-muted);
+  min-width: 96px;
+}
+
+.choice__options {
+  display: flex;
+  gap: 3px;
+  flex-wrap: wrap;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2px 10px;
+  margin: 0 0 6px;
+  font-size: 11px;
+}
+
+.stats dt {
+  color: var(--text-muted);
+}
+
+.stats dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.stats dd.is-bad {
+  color: var(--vermillion);
+  font-weight: 700;
+}
+
+.panel__buttons {
+  display: flex;
+  gap: 5px;
+}
+
+.log {
+  margin: 0;
+  padding-left: 14px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.log__empty {
+  list-style: none;
+  margin-left: -14px;
+}
+
+.report {
+  width: 100%;
+  margin-top: 6px;
+  padding: 6px;
+  border-radius: 5px;
+  border: 1px solid #35544a;
+  background: #08120f;
+  color: var(--text-on-felt);
+  font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
+  font-size: 10px;
+  line-height: 1.45;
+  resize: vertical;
+}
