@@ -323,7 +323,7 @@ describe("HKOS scoring patterns", () => {
     expect(ids(scoring)).not.toContain("C3");
   });
 
-  it("RECON-10/11 and RULE-FAAN-G12: kong replacement is C1 + C5, with no extra consecutive-kong limit", () => {
+  it("RECON-10 and RECON-11: kong replacement is C1 + C5, with no extra consecutive-kong limit", () => {
     const scoring = score({ concealed: COMMON_HAND, source: "kong-replacement" });
     expect(ids(scoring)).toContain("C1");
     expect(ids(scoring)).toContain("C5");
@@ -410,7 +410,12 @@ describe("HKOS scoring patterns", () => {
   });
 
   it("E4 Heavenly Hand is a single limit item", () => {
-    const scoring = score({ concealed: COMMON_HAND, circumstances: { openingDealerHand: true } });
+    const scoring = score({
+      concealed: COMMON_HAND,
+      winner: 0,
+      dealer: 0,
+      circumstances: { openingDealerHand: true },
+    });
     expect(ids(scoring)).toEqual(["E4"]);
   });
 
@@ -450,6 +455,19 @@ describe("HKOS scoring patterns", () => {
 });
 
 describe("stacking, minimums, ceiling and reconciliation", () => {
+  it("RULE-WIN-4: an ambiguous hand uses the highest-faan decomposition, not the first structural reading", () => {
+    const scoring = score({ concealed: [
+      "characters-3", "characters-3",
+      "characters-5", "characters-5", "characters-5",
+      "characters-6", "characters-6", "characters-6", "characters-6",
+      "characters-7", "characters-7", "characters-7", "characters-7",
+      "characters-8",
+    ] });
+    expect(ids(scoring)).toContain("A1");
+    expect(ids(scoring)).toContain("A4");
+    expect(scoring.totalFaan).toBe(10);
+  });
+
   it("RECON-9: concealed all-triplets self-draw is exactly A2 + C1 + C2, not a limit", () => {
     const scoring = score({ concealed: ALL_TRIPLETS });
     expect(ids(scoring)).toEqual(expect.arrayContaining(["A2", "C1", "C2"]));
@@ -469,7 +487,7 @@ describe("stacking, minimums, ceiling and reconciliation", () => {
     expect(ids(scoring)).not.toContain("A4");
   });
 
-  it("RECON-1/15 and RULE-SCORE-1/4: bonus faan pays but cannot satisfy the configured minimum", () => {
+  it("RECON-1 and RECON-15 / RULE-SCORE-1/4: bonus faan pays but cannot satisfy the configured minimum", () => {
     const zeroQualifying = score({
       concealed: [
         "bamboo-1", "bamboo-2", "bamboo-3",
