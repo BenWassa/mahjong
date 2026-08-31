@@ -26,7 +26,7 @@ describe("scored core integration", () => {
   it("RECON-1 / RULE-SCORE-4: minimum-faan legality filters the Win action", () => {
     const baseOptions = {
       concealed: {
-        1: [...ZERO_FAAN_WAIT, "bamboo-5"],
+        1: [...ZERO_FAAN_WAIT, "bamboo-5"] as const,
       },
       melds: {
         1: [{
