@@ -3,7 +3,7 @@ import {
   legalActionsFor,
   legalSystemActions,
   reduceGame,
-} from "./core.js";
+} from "./scored-core.js";
 import { projectPublicState } from "./redaction.js";
 import type {
   FaanBreakdown,
