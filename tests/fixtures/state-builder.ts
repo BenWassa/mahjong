@@ -1,5 +1,5 @@
 import { assertGameInvariants } from "../../src/engine/invariants.js";
-import { createTileSet } from "../../src/engine/tiles.js";
+import { createTileSet, isBonusTile } from "../../src/engine/tiles.js";
 import type {
   Discard,
   GameEvent,
@@ -45,8 +45,11 @@ export interface TestStateOptions {
   readonly wallHead?: readonly TileKind[];
   readonly wallTail?: readonly TileKind[];
   /**
-   * Number of tiles to leave in the wall. Unused physical tiles outside that
-   * count become earlier, unclaimed discards so conservation remains exact.
+   * Number of tiles to leave in the wall. Unused ordinary physical tiles
+   * outside that count become earlier, unclaimed discards so conservation
+   * remains exact. Bonus tiles may not be synthesized as discards: callers
+   * using a short 144-tile wall must explicitly place excluded bonuses in a
+   * player's `bonuses` collection.
    */
   readonly wallCount?: number;
   readonly phase?: GamePhase;
@@ -60,8 +63,9 @@ const TEST_PROFILE: RulesProfile = {
 
 /**
  * Constructs invariant-valid test snapshots from tile kinds. Physical copies
- * are allocated in canonical order and every otherwise-unused tile is placed
- * either in the wall or in the historical discard ledger.
+ * are allocated in canonical order and every otherwise-unused ordinary tile is
+ * placed either in the wall or in the historical discard ledger. Bonus tiles
+ * are never fabricated as historical discards.
  */
 export function buildTestState(options: TestStateOptions = {}): InternalGameState {
   const config = options.config ?? TEST_PROFILE;
@@ -156,10 +160,13 @@ export function buildTestState(options: TestStateOptions = {}): InternalGameStat
   const wallHead = (options.wallHead ?? []).map((kind) => take(kind, "wall head"));
   const wallTail = (options.wallTail ?? []).map((kind) => take(kind, "wall tail"));
   const remaining = [...available.values()].flat();
-  const requestedWallCount = options.wallCount ??
-    wallHead.length + remaining.length + wallTail.length;
+  const requestedWallCount =
+    options.wallCount ?? wallHead.length + remaining.length + wallTail.length;
   const reservedCount = wallHead.length + wallTail.length;
-  if (requestedWallCount < reservedCount || requestedWallCount > reservedCount + remaining.length) {
+  if (
+    requestedWallCount < reservedCount ||
+    requestedWallCount > reservedCount + remaining.length
+  ) {
     throw new RangeError(
       `Wall count ${String(requestedWallCount)} cannot contain ${String(reservedCount)} reserved tiles and ${String(remaining.length)} remaining tiles`,
     );
@@ -167,6 +174,13 @@ export function buildTestState(options: TestStateOptions = {}): InternalGameStat
   const middleCount = requestedWallCount - reservedCount;
   const wall = [...wallHead, ...remaining.slice(0, middleCount), ...wallTail];
   const discardedRemainder = remaining.slice(middleCount);
+  const illegalBonusRemainder = discardedRemainder.filter(isBonusTile);
+  if (illegalBonusRemainder.length > 0) {
+    throw new Error(
+      `Unused bonus tiles cannot become synthetic discards; place them in bonuses or the wall: ${illegalBonusRemainder.map((tile) => tile.kind).join(", ")}`,
+    );
+  }
+
   const priorDiscards: Discard[] = [...explicitDiscards, ...claimedDiscards];
   for (const [offset, tile] of discardedRemainder.entries()) {
     const index = priorDiscards.length;

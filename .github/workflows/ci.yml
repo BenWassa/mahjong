@@ -15,7 +15,9 @@ concurrency:
 jobs:
   check:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
+    env:
+      MAHJONG_SIMULATION_GAMES: 2000
     steps:
       - name: Check out repository
         uses: actions/checkout@v4

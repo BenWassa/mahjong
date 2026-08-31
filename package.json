@@ -11,7 +11,9 @@
     "check": "npm run lint && npm run typecheck && npm run test:run && npm run build",
     "lint": "eslint .",
     "test": "vitest",
+    "test:contracts": "vitest run tests/contracts tests/engine/invariants.test.ts tests/engine/mechanical-contracts.test.ts",
     "test:run": "vitest run",
+    "test:simulation": "vitest run tests/simulation/seeded-simulation.test.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "devDependencies": {
