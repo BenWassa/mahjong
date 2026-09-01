@@ -1,0 +1,40 @@
+{
+  "name": "mahjong-app",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Production Hong Kong Old Style Mahjong table and installable offline PWA.",
+  "scripts": {
+    "dev": "vite",
+    "phone": "vite --host 0.0.0.0",
+    "build": "vite build",
+    "preview": "vite preview",
+    "phone:preview": "vite preview --host 0.0.0.0",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "lint": "eslint .",
+    "check": "npm run lint && npm run typecheck && npm run test:run && npm run build",
+    "qa": "node scripts/visual-qa.mjs"
+  },
+  "dependencies": {
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.5",
+    "@vitejs/plugin-react": "6.1.1",
+    "eslint": "10.9.1",
+    "jsdom": "27.0.0",
+    "playwright": "1.56.1",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.68.0",
+    "vite": "8.2.2",
+    "vitest": "4.1.11"
+  },
+  "engines": {
+    "node": ">=22.13.0"
+  }
+}

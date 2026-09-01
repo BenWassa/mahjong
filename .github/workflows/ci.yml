@@ -38,6 +38,29 @@ jobs:
         env:
           MAHJONG_GATE_GAMES: 1500
 
+  app:
+    name: Production app and PWA (#21)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Install app dependencies
+        run: npm ci
+        working-directory: app
+
+      - name: Check the production app
+        run: npm run check
+        working-directory: app
+
   prototype:
     name: Interaction prototype (#7)
     runs-on: ubuntu-latest

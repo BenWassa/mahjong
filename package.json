@@ -7,14 +7,19 @@
     "node": ">=22.13.0"
   },
   "scripts": {
+    "app": "npm --prefix app run dev",
+    "app:phone": "npm --prefix app run phone",
     "build": "tsc -p tsconfig.build.json",
     "check": "npm run lint && npm run typecheck && npm run test:run && npm run build",
+    "check:all": "npm run check && npm run check:app",
+    "check:app": "npm --prefix app run check",
+    "gate": "vitest run tests/gate",
     "lint": "eslint .",
+    "qa": "npm --prefix app run qa",
+    "sim": "tsx src/sim/run.ts",
     "test": "vitest",
     "test:run": "vitest run",
-    "typecheck": "tsc --noEmit -p tsconfig.json",
-    "sim": "tsx src/sim/run.ts",
-    "gate": "vitest run tests/gate"
+    "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

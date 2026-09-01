@@ -3,9 +3,10 @@ import tseslint from "typescript-eslint";
 
 export default tseslint.config(
   {
-    // The #7 interaction prototype is a self-contained package with its own
-    // pinned toolchain and its own mirror of this configuration.
-    ignores: ["coverage/", "dist/", "node_modules/", "prototype/"],
+    // The #7 interaction prototype and the production app are self-contained
+    // packages with their own pinned toolchains and their own mirrors of this
+    // configuration.
+    ignores: ["app/", "coverage/", "dist/", "node_modules/", "prototype/"],
   },
   {
     files: ["**/*.js"],

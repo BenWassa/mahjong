@@ -27,7 +27,8 @@ This amendment supersedes any PRD wording that implies Android is the only V1 de
 | Correctness | #5 — V1.4 Invariant test corpus and seeded simulation | **Done** — PR #17, `tests/gate/`, `src/sim/` |
 | Bots | #6 — V1.5 Competent non-cheating heuristic bots | **Done** — public-state policy + seeded benchmark |
 | Interaction | #7 — V1.6 Real-phone interaction prototype | **Done — GREEN on real Android phone** — [`INTERACTION_PROTOTYPE.md`](INTERACTION_PROTOTYPE.md) |
-| Presentation + PWA | #8 — V1.7 Production table, SVG tiles, tactile presentation and installable PWA | Ready — interaction gate passed |
+| Presentation + PWA | #8 — V1.7 Production table, SVG tiles, tactile presentation and installable PWA | **Done** — delivered by #21, built directly to the V1.7.1 quality bar |
+| Design authority | #21 — V1.7.1 Production table, responsive geometry, motion and accessibility | **Done** — [`DESIGN.md`](DESIGN.md), `app/` |
 | Learning | #9 — V1.8 Contextual learning, assist and rules reference | Requires production table |
 | Persistence | #10 — V1.9 Local persistence, resume and basic stats | Requires game records + UI |
 | PWA + Android acceptance | #11 — V1.10 Verify installable PWA and package offline Android app | Final integration/acceptance |
@@ -39,6 +40,7 @@ This amendment supersedes any PRD wording that implies Android is the only V1 de
 3. The seeded simulation/tile-conservation gate must be green before production visual work.
 4. Core interaction is validated on the actual phone before the full visual system is built.
 5. The production web app is built as an installable offline PWA; Capacitor packaging comes last.
+6. Presentation decisions are recorded in [`DESIGN.md`](DESIGN.md) before they are re-litigated; the implementation and that document must agree.
 
 ## Scope firewall
 
@@ -54,7 +56,8 @@ Until V1 is complete, do not add multiplayer, network services, accounts, teleme
 | #5 Correctness gate | Complete |
 | #6 Bots | Complete |
 | #7 Interaction prototype | Complete — real-phone verdict GREEN |
-| #8 Production table + PWA | Ready to start |
+| #8 Production table + PWA | Complete — delivered by #21 |
+| #21 Production design, geometry and accessibility | Complete — pending the real-device gate recorded in [`DESIGN.md`](DESIGN.md) |
 | #9 Learning layer | Not started |
 | #10 Persistence | Not started |
 | #11 PWA + Android acceptance | Not started |

@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Mahjong">
+  <rect width="512" height="512" rx="96" fill="#0e2620"/>
+  <rect x="146" y="96" width="220" height="300" rx="22" fill="#d9cbb0"/>
+  <rect x="152" y="100" width="208" height="284" rx="18" fill="#f4ebd9"/>
+  <path d="M170 112h172" stroke="#ffffff" stroke-width="7" stroke-linecap="round" opacity="0.6"/>
+  <text x="256" y="196" text-anchor="middle" font-family="Noto Sans CJK SC, WenQuanYi Zen Hei, sans-serif"
+        font-size="120" font-weight="700" fill="#1c1a17">五</text>
+  <text x="256" y="330" text-anchor="middle" font-family="Noto Sans CJK SC, WenQuanYi Zen Hei, sans-serif"
+        font-size="128" font-weight="700" fill="#c3282d">萬</text>
+</svg>

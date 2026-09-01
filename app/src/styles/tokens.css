@@ -1,0 +1,177 @@
+/*
+ * Production design tokens. docs/DESIGN.md is the prose authority for these
+ * values; this file is the only place they are defined. No component may
+ * hardcode a colour, radius, duration or easing.
+ *
+ * The palette originates in PRD §8 (antique Hong Kong parlour set: bone faces,
+ * jade felt, vermillion and ink engraving, brass fittings). Everything below
+ * the PRD block is the production system built on top of it.
+ */
+
+:root {
+  color-scheme: dark;
+
+  /* ---- PRD §8 source palette ------------------------------------------ */
+  --table-felt: #14342a;
+  --table-felt-deep: #0e2620;
+  --table-edge: #0a1a15;
+
+  --tile-face: #f4ebd9;
+  --tile-face-lit: #fff8ea;
+  --tile-edge: #d9cbb0;
+  --tile-shadow: rgba(0, 0, 0, 0.35);
+  --tile-back: #2e6b52;
+  --tile-back-alt: #c08a4e;
+
+  --ink: #1c1a17;
+  --vermillion: #c3282d;
+  --bamboo-green: #2e7d4f;
+  --cobalt: #2b4c7e;
+
+  --brass: #b08d3f;
+  --text-on-felt: #ede5d5;
+  --text-muted: #9dafa4;
+  --focus-ring: #e8c77a;
+
+  /* ---- Derived surfaces ------------------------------------------------
+   * Three surface steps only. Depth is carried by value and by a single
+   * shadow scale, never by a border on every element.
+   */
+  --surface-table: var(--table-felt);
+  --surface-well: var(--table-felt-deep);
+  --surface-rail: #10291f;
+  --surface-raised: #1b4034;
+  --surface-overlay: #0c211b;
+  --hairline: rgba(237, 229, 213, 0.14);
+  --hairline-strong: rgba(237, 229, 213, 0.26);
+
+  /* ---- Text ramp -------------------------------------------------------
+   * Tinted from the felt hue rather than grey, so text sits in the world
+   * instead of on top of it. Contrast measured against --surface-table.
+   */
+  --text-primary: var(--text-on-felt);      /* 11.4:1 */
+  --text-secondary: #bccabf;                /* 7.6:1  */
+  --text-tertiary: var(--text-muted);       /* 5.6:1  */
+  --text-on-tile: var(--ink);
+  --text-on-brass: #17130a;
+
+  /* ---- State -----------------------------------------------------------
+   * Every state below is also carried by a non-colour channel: elevation,
+   * a ring, a glyph, or position. Hue is never the only signal. PRD §8.
+   */
+  --state-selected: var(--focus-ring);
+  --state-pending: var(--brass);
+  --state-danger: #d4574b;
+  --state-affirm: #5ea67d;
+  --disabled-opacity: 0.38;
+
+  /* ---- Type ------------------------------------------------------------
+   * No webfont. The PWA must work offline with no runtime network request,
+   * and a CJK-capable face is megabytes. The display voice of this product
+   * is the engraved tile face, not the interface label.
+   */
+  --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue",
+    Arial, sans-serif;
+  --font-han: "Noto Sans CJK SC", "Noto Sans SC", "Source Han Sans SC",
+    "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "WenQuanYi Zen Hei",
+    "Droid Sans Fallback", sans-serif;
+  --font-numeric: var(--font-ui);
+
+  --text-xs: 0.6875rem;   /* 11px  seat labels, meta */
+  --text-sm: 0.8125rem;   /* 13px  secondary readouts */
+  --text-md: 0.9375rem;   /* 15px  primary interface text */
+  --text-lg: 1.25rem;     /* 20px  result headline */
+  --text-xl: 1.75rem;     /* 28px  faan total */
+
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-bold: 700;
+
+  --tracking-tight: -0.01em;
+  --tracking-label: 0.06em;
+
+  /* ---- Spacing ---------------------------------------------------------
+   * One 4px-rooted scale. Landscape phone play is vertically tight, so the
+   * scale stops early on purpose; anything larger is a layout error.
+   */
+  --space-1: 2px;
+  --space-2: 4px;
+  --space-3: 6px;
+  --space-4: 8px;
+  --space-5: 12px;
+  --space-6: 16px;
+  --space-7: 24px;
+  --space-8: 32px;
+
+  /* ---- Shape -----------------------------------------------------------
+   * Shape lock: two radii. Tiles carry the product's only large radius
+   * because a real tile has a rounded edge; interface chrome uses the small
+   * one. Nothing else invents a radius.
+   */
+  --radius-tile: 4px;
+  --radius-control: 6px;
+  --radius-surface: 10px;
+
+  /* ---- Elevation -------------------------------------------------------
+   * Offset plus blur, always. A zero-offset halo is decoration, not depth.
+   */
+  --shadow-rest: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-raised: 0 3px 6px rgba(0, 0, 0, 0.45);
+  --shadow-lifted: 0 6px 14px rgba(0, 0, 0, 0.5);
+  --shadow-overlay: 0 12px 36px rgba(0, 0, 0, 0.6);
+
+  /* ---- Touch -----------------------------------------------------------
+   * 44px is the floor for any control the player taps under time pressure.
+   * A tile may render narrower than 44px, but its hit area is padded up to
+   * the floor. See docs/DESIGN.md "Minimum touch-target policy".
+   */
+  --touch-min: 44px;
+  --touch-comfortable: 48px;
+
+  /* ---- Tile geometry ---------------------------------------------------
+   * Set at runtime by useTableGeometry from the real viewport. The values
+   * here are the fallback for a first paint before measurement lands.
+   */
+  --tile-w: 46px;
+  --tile-h: 61px;
+  --tile-gap: 3px;
+  --tile-aspect: 1.333;
+  --tile-w-min: 34px;
+  --tile-w-max: 62px;
+  --opp-tile-w: 18px;
+  --discard-tile-w: 26px;
+  --meld-tile-w: 24px;
+
+  /* ---- Motion ----------------------------------------------------------
+   * Durations are short because every one of these fires many times a hand.
+   * ease-in is never used on entering UI: it delays the moment the player is
+   * watching. Nothing here may gate a legal action.
+   */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-settle: cubic-bezier(0.34, 1.26, 0.64, 1);
+
+  --dur-press: 110ms;
+  --dur-lift: 160ms;
+  --dur-move: 220ms;
+  --dur-overlay: 260ms;
+
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+}
+
+/*
+ * Reduced motion keeps every transition that explains a state change and
+ * removes the ones that move things through space. It is not "no motion":
+ * a discard that teleports is harder to follow, not easier.
+ */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-press: 1ms;
+    --dur-lift: 1ms;
+    --dur-move: 1ms;
+    --dur-overlay: 120ms;
+  }
+}

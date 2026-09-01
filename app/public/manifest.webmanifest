@@ -1,0 +1,19 @@
+{
+  "name": "Mahjong, Hong Kong Old Style",
+  "short_name": "Mahjong",
+  "description": "Offline Hong Kong Old Style Mahjong against three heuristic bots.",
+  "id": "/mahjong/",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "landscape",
+  "background_color": "#0a1a15",
+  "theme_color": "#0e2620",
+  "categories": ["games"],
+  "icons": [
+    { "src": "./icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "./icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "./icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "./icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}
