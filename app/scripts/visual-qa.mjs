@@ -110,6 +110,26 @@ async function assertGeometry(page, label, viewport) {
       smallestControl: controls.length
         ? Math.min(...controls.map((node) => node.getBoundingClientRect().height))
         : null,
+      // Anything clipping its own content. The page-level overflow checks miss
+      // this entirely: a container that shears its bottom row of tiles in half
+      // does not make the document scroll.
+      clipped: (() => {
+        const out = [];
+        for (const node of document.querySelectorAll(
+          ".well__grid, .hand, .handrow, .seat, .claimband, .sheet__items",
+        )) {
+          const style = getComputedStyle(node);
+          if (style.overflow === "visible") continue;
+          const overflowY = node.scrollHeight - node.clientHeight;
+          const overflowX = node.scrollWidth - node.clientWidth;
+          // The result sheet is allowed to scroll; nothing on the table is.
+          const scrollable = node.closest(".sheet") !== null;
+          if (!scrollable && (overflowY > 1 || overflowX > 1)) {
+            out.push(`${node.className}:${String(overflowX)}x${String(overflowY)}`);
+          }
+        }
+        return out;
+      })(),
       // Does any claim control cover a tile the decision depends on?
       claimOverTile: (() => {
         const claimRects = [...document.querySelectorAll(".claim")].map((n) =>
@@ -154,6 +174,9 @@ async function assertGeometry(page, label, viewport) {
   }
   if (report.claimOverTile) {
     finding("high", "occlusion", "A claim control overlaps a tile the decision depends on", where);
+  }
+  for (const clip of report.clipped) {
+    finding("high", "clipping", `Container clips its own content: ${clip}`, where);
   }
   return report;
 }

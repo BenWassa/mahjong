@@ -105,6 +105,31 @@ describe("geometry stability", () => {
   });
 });
 
+describe("discard pile rows", () => {
+  it("never asks for more rows than the well can actually show", () => {
+    // The pile shares the table top with the across-seat label and with the
+    // focus slot, which is reserved at the height of the offered tile rather
+    // than of the plaque. Sizing the pile without that reservation sheared its
+    // bottom row on viewports whose insets had taken the slack away.
+    for (const { id, vp } of LANDSCAPE) {
+      const g = computeGeometry({ viewport: vp, meldCount: 0 });
+      const pileH = g.discardRows * (g.discardTileW * (4 / 3) + 2);
+      const focusSlot = g.tileH + 16;
+      const available = g.tableTopHeight - 34 - focusSlot - 24 - 6;
+      expect(
+        pileH,
+        `${id}: ${String(g.discardRows)} rows do not fit in ${String(available)}px`,
+      ).toBeLessThanOrEqual(available + 2);
+    }
+  });
+
+  it("always shows at least one row", () => {
+    for (const { vp } of LANDSCAPE) {
+      expect(computeGeometry({ viewport: vp, meldCount: 0 }).discardRows).toBeGreaterThanOrEqual(1);
+    }
+  });
+});
+
 describe("spare width policy", () => {
   it("caps the hand rather than stretching it across a wide viewport", () => {
     const wide = computeGeometry({ viewport: viewport(1400, 500), meldCount: 0 });

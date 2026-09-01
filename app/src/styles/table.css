@@ -271,8 +271,11 @@
   max-height: calc(
     var(--discard-rows, 3) * (var(--discard-tile-w) * var(--tile-aspect) + 2px) + 6px
   );
+  /* Never shrink below the rows the geometry sized this for. As a flex child
+   * it would otherwise absorb the squeeze and clip its bottom row, which is
+   * exactly the half-face the row count exists to prevent. */
+  flex: 0 0 auto;
   overflow: hidden;
-  min-height: 0;
 }
 
 /* The tile currently on offer sits above the pile, at hand size, so the claim

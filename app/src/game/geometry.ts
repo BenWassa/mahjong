@@ -76,6 +76,10 @@ const EDGE_PAD = 8;
 const ROW_GAP = 6;
 /** Vertical room the across-seat label takes out of the table top. */
 const SEAT_LABEL_H = 34;
+/** Padding inside the discard well, matching --space-5. */
+const WELL_PAD = 12;
+/** Room around the offered tile in the reserved focus slot, matching --space-6. */
+const FOCUS_SLOT_PAD = 16;
 
 const GAP_STEPS = [4, 3, 2] as const;
 
@@ -155,8 +159,16 @@ export function computeGeometry({ viewport, meldCount }: GeometryInput): TableGe
 
   // Whole rows only. A pile clipped through the middle of a tile reads as a
   // rendering fault, and half a face is worse than no face.
+  //
+  // The room the pile actually gets is what is left of the table top after the
+  // across-seat label and the focus slot, and the focus slot is reserved at the
+  // height of the offered tile rather than of the plaque. Estimating it at a
+  // constant sheared the bottom row on viewports whose insets had already
+  // taken the slack away.
   const discardTileH = discardTileW * TILE_ASPECT;
-  const pileHeight = tableTopHeight - 64 - SEAT_LABEL_H;
+  const focusSlotH = tileH + FOCUS_SLOT_PAD;
+  const pileHeight =
+    tableTopHeight - SEAT_LABEL_H - focusSlotH - WELL_PAD * 2 - ROW_GAP;
   const discardRows = clamp(Math.floor(pileHeight / (discardTileH + 2)), 1, 5);
 
   return {
