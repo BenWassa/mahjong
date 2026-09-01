@@ -1,6 +1,7 @@
 # Mahjong production design
 
-> Status: **authoritative for the production app** as of Issue #21 (V1.7.1).
+> Status: **authoritative for the production app** as of Issue #21 (V1.7.1),
+> extended by Issue #9 (V1.8) for the contextual learning layer in §21.
 > Where this document and `app/` disagree, one of them is a bug. Where this
 > document and [`HKOS_RULES.md`](HKOS_RULES.md) disagree about game behaviour,
 > the rules contract wins and this document is wrong.
@@ -30,6 +31,7 @@ most of them are asserted by a test named in the section that states them.
 - [18. Accessibility](#18-accessibility)
 - [19. PWA and Capacitor](#19-pwa-and-capacitor)
 - [20. Specialist audits: what was taken and what was refused](#20-specialist-audits-what-was-taken-and-what-was-refused)
+- [21. Contextual learning layer (#9)](#21-contextual-learning-layer-9)
 
 ---
 
@@ -480,6 +482,74 @@ synthesised into the single design above rather than applied one at a time.
 - **Material's component language.** Android platform correctness constrains
   this interface — targets, insets, system bars, dialog behaviour — but does
   not define its visual identity. This is a mahjong table, not a Material demo.
+
+---
+
+## 21. Contextual learning layer (#9)
+
+Three independent controls, each default on for the author's initial learning
+period, none ever required to make a legal move: **Assist**, **Explain**, and
+**corner labels** (§10). All three switch off independently from the portrait
+menu, which is already this app's settings surface (§1) — no new landscape
+chrome was added, so the validated table from §3–§17 is unchanged.
+
+**Assist** decorates options the player could already see and take; it never
+gates one. A legal claim carries one more non-colour signal — a fine brass
+ring, the same accent used everywhere else (§7) — layered onto the button it
+already draws. The hand's own tile states stay exactly the closed set §15
+defines: a second visual tile state was considered and rejected, because the
+claim band's reserved empty space (§3) already had room for a precise,
+screen-reader-legible text alternative that a pseudo-element ring on an
+opaque tile face cannot give for free. That space shows, in the two moments
+that are otherwise blank:
+
+- **On the player's own discard turn**, a suggested discard and a one-line
+  reason. The suggestion is the same heuristic bot every opponent uses
+  (`src/bots/heuristic.ts`), asked to choose from the player's own
+  already-visible hand — never a second implementation of a bot's strategy.
+  Only the reason is composed in the app, from hand-shape facts (shanten
+  distance, adjacency), not from the bot's internal scoring weights.
+- **At every other moment**, a waiting-tiles readout, when the hand is at a
+  resting count and tenpai. Both this and the below-minimum-faan Explain
+  concept reuse `MahjongGame.waitingTiles` / `.isStructurallyComplete`
+  (`src/engine/learning.ts`) — additive, read-only engine methods that call
+  the same structural and scoring evaluators the engine uses to decide real
+  legality. Nothing in the UI re-derives a rule.
+
+**Explain** shows a concise, first-occurrence, plain-language note for each
+required concept, once per session, never again. Five surface as a small
+non-modal banner (§ below) pinned above the table, positioned so it never
+overlaps the hand, claim band or discard well and never gates a legal action;
+it clears itself after a few seconds. Three — self-draw vs. discard, the
+itemised faan breakdown's "stacking", and an exhaustive draw — are shown as a
+quiet aside under the result sheet's own content (§16), because that is
+already the contextual moment for them.
+
+```
+.explain {
+  position: absolute; top: max(space-5, safe-top); left: 50%;
+  transform: translateX(-50%);
+  width: min(420px, 100% - space-8);
+  background: surface-overlay; box-shadow: shadow-lifted;
+}
+```
+
+**The rules reference** renders the bundled text of `docs/HKOS_RULES.md`
+verbatim, through a purpose-built markdown-lite reader
+(`app/src/game/markdown-lite.ts`) rather than a hand-transcribed copy: the
+document is imported as a raw string at build time
+(`app/src/game/hkosRules.ts`), so the reference is the same bytes as the
+rules contract and cannot silently drift from it. It is reachable only from
+the portrait menu and works fully offline, like the rest of the PWA (§19).
+
+### Exit criteria carried forward from #9
+
+- A first-time player can understand why a core action occurred, without a
+  pre-game tutorial flow.
+- All three learning aids disable independently and default on.
+- Traditional tile faces remain visually primary; corner labels are still the
+  only layer added over them (§10).
+- The rules reference matches `docs/HKOS_RULES.md` exactly, by construction.
 
 ---
 

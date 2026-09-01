@@ -97,7 +97,16 @@ export default defineConfig(({ command, isPreview }) => ({
       { find: /^@engine\//, replacement: `${engineRoot}/` },
     ],
   },
-  server: { host: true, port: 5174, strictPort: true },
+  server: {
+    host: true,
+    port: 5174,
+    strictPort: true,
+    // The rules reference (#9) imports docs/HKOS_RULES.md as raw text, one
+    // directory above this app's root, for the same reason the engine is
+    // imported directly from ../src: so it can never silently drift from the
+    // document it is meant to match exactly.
+    fs: { allow: [fileURLToPath(new URL("..", import.meta.url))] },
+  },
   preview: { host: true, port: 4174, strictPort: true },
   test: {
     environment: "jsdom",

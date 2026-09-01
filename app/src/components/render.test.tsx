@@ -1,13 +1,14 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import { DEFAULT_RULES_PROFILE, newGame, type TileKind } from "@engine";
+import { DEFAULT_RULES_PROFILE, newGame, type FaanBreakdown, type HandResult, type TileKind } from "@engine";
 
 import { tileName, tileShortLabel } from "../game/labels";
 import { Tile } from "../tiles/Tile";
 import { ClaimBand } from "./ClaimBand";
 import { DiscardWell } from "./DiscardWell";
 import { PlayerHand } from "./PlayerHand";
+import { ResultOverlay } from "./ResultOverlay";
 import { SeatCard } from "./SeatCard";
 import { StatusStrip } from "./StatusStrip";
 
@@ -161,6 +162,133 @@ describe("the claim band", () => {
       <ClaimBand actions={[]} hand={hand} onClaim={() => undefined} />,
     );
     expect(markup).toContain("No claim available");
+  });
+
+  it("rings a legal claim with assist on, but never Pass, and leaves it unmarked with assist off", () => {
+    const actions = [
+      { type: "win", seat: 0 } as const,
+      { type: "pass", seat: 0 } as const,
+    ];
+    const assisted = renderToStaticMarkup(
+      <ClaimBand actions={actions} hand={hand} onClaim={() => undefined} assistOn />,
+    );
+    expect(assisted).toContain('data-assist="true"');
+    // Pass never carries the assist ring: it is not the action being suggested.
+    expect(assisted).toMatch(/claim--pass" data-assist="false"/);
+
+    const plain = renderToStaticMarkup(
+      <ClaimBand actions={actions} hand={hand} onClaim={() => undefined} />,
+    );
+    expect(plain).not.toContain('data-assist="true"');
+  });
+
+  it("shows an assist hint only in the band's reserved empty space, never alongside real claims", () => {
+    const hint = <p className="claimband__hint">Suggested: discard something</p>;
+    const empty = renderToStaticMarkup(
+      <ClaimBand actions={[]} hand={hand} onClaim={() => undefined} assistHint={hint} />,
+    );
+    expect(empty).toContain("Suggested: discard something");
+
+    const busy = renderToStaticMarkup(
+      <ClaimBand
+        actions={[{ type: "pass", seat: 0 }]}
+        hand={hand}
+        onClaim={() => undefined}
+        assistHint={hint}
+      />,
+    );
+    expect(busy).not.toContain("Suggested: discard something");
+  });
+});
+
+describe("the result overlay's explain notes", () => {
+  const winResult: HandResult = {
+    outcome: "win",
+    handIndex: 0,
+    roundWind: "east",
+    dealer: 0,
+    winner: 0,
+    fromSeat: null,
+    source: "self-draw",
+    winningTile: null,
+    structure: null,
+    circumstances: {
+      lastWallTile: false,
+      lastDiscard: false,
+      openingDealerHand: false,
+      dealerFirstDiscard: false,
+    },
+    scoring: null,
+  };
+  const drawResult: HandResult = {
+    outcome: "draw",
+    handIndex: 0,
+    roundWind: "east",
+    dealer: 0,
+    reason: "wall-exhausted",
+    scoring: null,
+  };
+  const scoring: FaanBreakdown = {
+    qualifyingFaan: 1,
+    totalFaan: 1,
+    items: [{ id: "A1", name: "Common Hand", chineseName: "平糊", faan: 1 }],
+    basePoints: 2,
+    payments: [2, -2, 0, 0],
+    limitHand: null,
+  };
+
+  it("shows nothing extra by default, itemised breakdown aside", () => {
+    const markup = renderToStaticMarkup(
+      <ResultOverlay
+        result={winResult}
+        scoring={scoring}
+        viewer={0}
+        onContinue={() => undefined}
+        isMatchEnd={false}
+      />,
+    );
+    expect(markup).not.toContain("sheet__explain");
+  });
+
+  it("adds the self-draw/discard and stacking notes once, only when asked", () => {
+    const markup = renderToStaticMarkup(
+      <ResultOverlay
+        result={winResult}
+        scoring={scoring}
+        viewer={0}
+        onContinue={() => undefined}
+        isMatchEnd={false}
+        explainWinSources
+        explainFaanBreakdown
+      />,
+    );
+    expect(markup).toContain("A win off a");
+    expect(markup).toContain("stacking");
+  });
+
+  it("adds the exhaustive-draw note on a drawn hand, only when asked", () => {
+    const withoutExplain = renderToStaticMarkup(
+      <ResultOverlay
+        result={drawResult}
+        scoring={null}
+        viewer={0}
+        onContinue={() => undefined}
+        isMatchEnd={false}
+      />,
+    );
+    expect(withoutExplain).not.toContain("wall ran out");
+
+    const withExplain = renderToStaticMarkup(
+      <ResultOverlay
+        result={drawResult}
+        scoring={null}
+        viewer={0}
+        onContinue={() => undefined}
+        isMatchEnd={false}
+        explainExhaustiveDraw
+      />,
+    );
+    expect(withExplain).toContain("wall ran out");
   });
 });
 

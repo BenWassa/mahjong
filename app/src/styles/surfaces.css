@@ -3,6 +3,9 @@
 .overlay {
   position: fixed;
   inset: 0;
+  /* Above the Explain banner (learning.css, z-index: 5): the result sheet is
+   * the one surface allowed to interrupt, and must never sit under it. */
+  z-index: 10;
   display: grid;
   place-items: center;
   padding: max(var(--space-5), var(--safe-top)) max(var(--space-6), var(--safe-right))
@@ -187,12 +190,21 @@
   color: var(--text-secondary);
 }
 
+/* The portrait screen is this app's settings surface: the three independent
+ * learning controls (#9) and the rules reference live here, grouped as one
+ * block pinned to the bottom of the column. */
+.portrait__settings {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin-top: auto;
+}
+
 .portrait__setting {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-5);
-  margin-top: auto;
   padding-top: var(--space-5);
   border-top: 1px solid var(--hairline);
 }

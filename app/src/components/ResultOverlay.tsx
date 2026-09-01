@@ -2,6 +2,7 @@ import { useEffect, useRef, type JSX } from "react";
 
 import type { FaanBreakdown, HandResult, Seat } from "@engine";
 
+import { CONCEPTS } from "../game/explain";
 import { seatPosition, seatPositionName, tileName, windName } from "../game/labels";
 
 /**
@@ -18,12 +19,19 @@ export function ResultOverlay({
   viewer,
   onContinue,
   isMatchEnd,
+  explainWinSources = false,
+  explainFaanBreakdown = false,
+  explainExhaustiveDraw = false,
 }: {
   readonly result: HandResult;
   readonly scoring: FaanBreakdown | null;
   readonly viewer: Seat;
   readonly onContinue: () => void;
   readonly isMatchEnd: boolean;
+  /** Explain's first-occurrence notes (#9), each shown at most once ever. */
+  readonly explainWinSources?: boolean;
+  readonly explainFaanBreakdown?: boolean;
+  readonly explainExhaustiveDraw?: boolean;
 }): JSX.Element {
   const confirmRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -81,7 +89,12 @@ export function ResultOverlay({
         </p>
 
         {scoring === null ? (
-          <p className="sheet__meta">No score is paid on an exhausted wall.</p>
+          <>
+            <p className="sheet__meta">No score is paid on an exhausted wall.</p>
+            {explainExhaustiveDraw && (
+              <p className="sheet__explain">{CONCEPTS["exhaustive-draw"].body}</p>
+            )}
+          </>
         ) : (
           <>
             <p className="sheet__total">
@@ -120,6 +133,13 @@ export function ResultOverlay({
                 </li>
               ))}
             </ul>
+
+            {explainFaanBreakdown && (
+              <p className="sheet__explain">{CONCEPTS["faan-breakdown"].body}</p>
+            )}
+            {explainWinSources && (
+              <p className="sheet__explain">{CONCEPTS["win-sources"].body}</p>
+            )}
           </>
         )}
 

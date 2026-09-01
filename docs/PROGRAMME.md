@@ -29,7 +29,7 @@ This amendment supersedes any PRD wording that implies Android is the only V1 de
 | Interaction | #7 — V1.6 Real-phone interaction prototype | **Done — GREEN on real Android phone** — [`INTERACTION_PROTOTYPE.md`](INTERACTION_PROTOTYPE.md) |
 | Presentation + PWA | #8 — V1.7 Production table, SVG tiles, tactile presentation and installable PWA | **Done** — delivered by #21, built directly to the V1.7.1 quality bar |
 | Design authority | #21 — V1.7.1 Production table, responsive geometry, motion and accessibility | **Done** — [`DESIGN.md`](DESIGN.md), `app/` |
-| Learning | #9 — V1.8 Contextual learning, assist and rules reference | Requires production table |
+| Learning | #9 — V1.8 Contextual learning, assist and rules reference | **Done** — [`DESIGN.md`](DESIGN.md) §21, `app/` |
 | Persistence | #10 — V1.9 Local persistence, resume and basic stats | Requires game records + UI |
 | PWA + Android acceptance | #11 — V1.10 Verify installable PWA and package offline Android app | Final integration/acceptance |
 
@@ -58,6 +58,6 @@ Until V1 is complete, do not add multiplayer, network services, accounts, teleme
 | #7 Interaction prototype | Complete — real-phone verdict GREEN |
 | #8 Production table + PWA | Complete — delivered by #21 |
 | #21 Production design, geometry and accessibility | Complete — pending the real-device gate recorded in [`DESIGN.md`](DESIGN.md) |
-| #9 Learning layer | Not started |
+| #9 Learning layer | Complete |
 | #10 Persistence | Not started |
 | #11 PWA + Android acceptance | Not started |

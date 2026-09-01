@@ -1,0 +1,238 @@
+/*
+ * Contextual learning (#9): Assist highlighting, the Explain banner, and the
+ * offline rules reference. Additive only — every rule here decorates a state
+ * that already exists (a legal tile, an empty claim band, a felt-coloured
+ * screen) rather than introducing a second visual system. Brass is still the
+ * only accent, reused rather than invented.
+ */
+
+/* -------------------------------------------------------------- assist --- */
+
+/*
+ * Assist highlights a legal claim with one more non-colour signal: a fine
+ * brass ring, layered onto the same background the button already paints.
+ * It never changes which claims are tappable — every one shown is already
+ * legal, assist on or off. The hand's own tile states are left exactly as
+ * DESIGN.md §15 defines them; the discard suggestion is carried by the
+ * claim band's reserved text instead of a second visual tile state.
+ */
+.claim[data-assist="true"] {
+  box-shadow: var(--shadow-raised), inset 0 0 0 1.4px rgba(176, 141, 63, 0.55);
+}
+
+/* The claim band's reserved empty space carries the discard suggestion or the
+ * waiting-tiles readout, exactly when there is nothing else to show there:
+ * the two are never true at once, so this never displaces a real control. */
+.claimband__hint {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+
+.claimband__hint strong {
+  color: var(--text-primary);
+  font-weight: var(--weight-medium);
+}
+
+/* -------------------------------------------------------------- explain --- */
+
+/*
+ * A slim, dismissible, non-modal note. It is pinned above the tabletop and
+ * never over the hand, the claim band or the discard well, so it never
+ * obscures a decision-relevant tile and never gates a legal action: the table
+ * beneath stays fully interactive while it is up.
+ */
+.explain {
+  position: absolute;
+  top: max(var(--space-5), var(--safe-top));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 5;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-5);
+  width: min(420px, calc(100% - var(--space-8)));
+  padding: var(--space-5) var(--space-6);
+  border-radius: var(--radius-surface);
+  background: var(--surface-overlay);
+  box-shadow: var(--shadow-lifted);
+  animation: explain-in var(--dur-overlay) var(--ease-out);
+}
+
+@keyframes explain-in {
+  from { opacity: 0; transform: translate(-50%, -6px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+.explain__text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.explain__title {
+  margin: 0 0 var(--space-3);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
+  color: var(--brass);
+}
+
+.explain__body {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+
+.explain__dismiss {
+  flex: 0 0 auto;
+  min-width: var(--touch-min);
+  min-height: var(--touch-min);
+  border-radius: var(--radius-control);
+  color: var(--text-tertiary);
+  font-size: var(--text-lg);
+  line-height: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .explain { animation: overlay-in var(--dur-overlay) var(--ease-out); }
+}
+
+/* --------------------------------------------------------- result notes --- */
+
+/* The result sheet's own first-occurrence notes (self-draw vs discard, the
+ * itemised breakdown, an exhaustive draw): styled as a quiet aside under the
+ * content they annotate, not as another overlay. */
+.sheet__explain {
+  margin: 0;
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--hairline);
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+}
+
+/* -------------------------------------------------------- rules reference */
+
+.rules {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  padding:
+    max(var(--space-6), var(--safe-top))
+    max(var(--space-7), var(--safe-right))
+    max(var(--space-6), var(--safe-bottom))
+    max(var(--space-7), var(--safe-left));
+  background: var(--table-edge);
+  color: var(--text-primary);
+}
+
+.rules__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-5);
+  padding-bottom: var(--space-5);
+  border-bottom: 1px solid var(--hairline);
+}
+
+.rules__title {
+  margin: 0;
+  font-size: var(--text-lg);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-tight);
+}
+
+.rules__close {
+  min-height: var(--touch-min);
+  padding: 0 var(--space-6);
+  border-radius: var(--radius-control);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-rest);
+  transition: transform var(--dur-press) var(--ease-out);
+}
+
+.rules__close:active {
+  transform: scale(0.97);
+}
+
+.rules__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding-top: var(--space-6);
+  max-width: 68ch;
+}
+
+.rules__h1,
+.rules__h2 {
+  font-size: var(--text-md);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-tight);
+  margin: var(--space-7) 0 var(--space-4);
+}
+
+.rules__h3,
+.rules__h4 {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
+  color: var(--text-secondary);
+  margin: var(--space-6) 0 var(--space-3);
+}
+
+.rules__p {
+  margin: 0 0 var(--space-5);
+  font-size: var(--text-sm);
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+
+.rules__p code,
+.rules__table code {
+  font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
+  font-size: 0.9em;
+  color: var(--text-primary);
+  background: rgba(237, 229, 213, 0.08);
+  padding: 0 3px;
+  border-radius: 3px;
+}
+
+.rules__list {
+  margin: 0 0 var(--space-5);
+  padding-inline-start: 1.4em;
+  font-size: var(--text-sm);
+  line-height: 1.55;
+  color: var(--text-secondary);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.rules__tablewrap {
+  overflow-x: auto;
+  margin: 0 0 var(--space-6);
+}
+
+.rules__table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: var(--text-xs);
+}
+
+.rules__table th,
+.rules__table td {
+  text-align: left;
+  vertical-align: top;
+  padding: var(--space-3) var(--space-5) var(--space-3) 0;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.rules__table th {
+  color: var(--text-tertiary);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  font-weight: var(--weight-medium);
+}
+
+.rules__hr {
+  border: 0;
+  border-top: 1px solid var(--hairline);
+  margin: var(--space-7) 0;
+}
