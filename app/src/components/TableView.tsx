@@ -14,6 +14,7 @@ import {
   type HandInteraction,
 } from "../game/interaction";
 import { seatPosition, seatPositionName } from "../game/labels";
+import { newMatchSeed } from "../game/seed";
 import type { SessionSnapshot } from "../game/session";
 import type { SessionHandle } from "../game/useGameSession";
 import { useTableGeometry } from "../game/useTableGeometry";
@@ -43,7 +44,7 @@ export function TableView({
   readonly explainOn: boolean;
   readonly learning: LearningProgress;
 }): JSX.Element {
-  const { snapshot, act, advance, scoreBreakdown } = session;
+  const { snapshot, act, advance, restart, scoreBreakdown } = session;
   const { view, legalActions } = snapshot;
   const self = view.players[view.viewer];
   const hand = self.concealed ?? [];
@@ -109,6 +110,19 @@ export function TableView({
     view.phase.kind === "hand-ended" || view.phase.kind === "match-ended"
       ? view.phase
       : null;
+
+  // A finished hand advances in place; a finished match has nowhere left to
+  // advance to — the engine offers no further "continue" action once the
+  // round itself is over — so it starts a fresh match instead. By the time
+  // this fires, #10's persistence layer has already archived the record
+  // that just completed.
+  const onResultContinue = useCallback(() => {
+    if (endedPhase?.kind === "match-ended") {
+      restart(newMatchSeed());
+    } else {
+      advance();
+    }
+  }, [endedPhase, advance, restart]);
 
   const seatFor = (position: "left" | "across" | "right"): Seat =>
     OPPONENT_SEATS.find(
@@ -256,7 +270,7 @@ export function TableView({
           scoring={scoreBreakdown}
           viewer={view.viewer}
           isMatchEnd={endedPhase.kind === "match-ended"}
-          onContinue={advance}
+          onContinue={onResultContinue}
           explainWinSources={resultExplainRef.current.winSources}
           explainFaanBreakdown={resultExplainRef.current.faanBreakdown}
           explainExhaustiveDraw={resultExplainRef.current.exhaustiveDraw}

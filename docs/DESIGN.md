@@ -1,7 +1,8 @@
 # Mahjong production design
 
 > Status: **authoritative for the production app** as of Issue #21 (V1.7.1),
-> extended by Issue #9 (V1.8) for the contextual learning layer in §21.
+> extended by Issue #9 (V1.8) for the contextual learning layer in §21, and by
+> Issue #10 (V1.9) for persistence and stats in §22.
 > Where this document and `app/` disagree, one of them is a bug. Where this
 > document and [`HKOS_RULES.md`](HKOS_RULES.md) disagree about game behaviour,
 > the rules contract wins and this document is wrong.
@@ -32,6 +33,7 @@ most of them are asserted by a test named in the section that states them.
 - [19. PWA and Capacitor](#19-pwa-and-capacitor)
 - [20. Specialist audits: what was taken and what was refused](#20-specialist-audits-what-was-taken-and-what-was-refused)
 - [21. Contextual learning layer (#9)](#21-contextual-learning-layer-9)
+- [22. Persistence and stats (#10)](#22-persistence-and-stats-10)
 
 ---
 
@@ -550,6 +552,70 @@ the portrait menu and works fully offline, like the rest of the PWA (§19).
 - Traditional tile faces remain visually primary; corner labels are still the
   only layer added over them (§10).
 - The rules reference matches `docs/HKOS_RULES.md` exactly, by construction.
+
+---
+
+## 22. Persistence and stats (#10)
+
+Local only, three `localStorage` keys under a versioned `mahjong:v1:` prefix
+(`app/src/game/persistence.ts`), no cloud, no accounts, no telemetry:
+
+- **Settings** — the Assist, Explain and corner-label toggles (§21, §10).
+  Loaded once at startup and written back whenever any of the three changes.
+  A rules profile is not stored here separately: no rules-selection UI exists
+  yet, so the only rules profile a new match can start with is
+  `DEFAULT_RULES_PROFILE`, and every match already carries its own profile in
+  its game record's `config` field — persisting a second, currently-inert
+  copy would be dead plumbing.
+- **Current game** — the one in-progress match's `GameRecord`
+  (`src/engine/types.ts`), overwritten after every action. This app seats one
+  table at a time, so there is exactly one resumable slot.
+- **Completed games** — an array of finished `GameRecord`s, appended to on
+  match completion and capped at 500 entries (oldest dropped first).
+
+**Resume** reuses the engine's own seed-plus-actions reconstruction
+(`replayGame`, `src/engine/adapter.ts`) rather than a second snapshot format:
+on launch, `GameSession` is handed the stored current-game record and
+replays it through the real reducer. `replayGame` already re-derives the
+record from scratch and diffs it against what was stored (RULE-ENGINE-REPLAY
+in `docs/ENGINE_ARCHITECTURE.md`), so a tampered or version-incompatible
+record is caught by the engine itself, not by a second ad hoc check in the
+app. Any failure — corrupt JSON, an unrecognised shape, a replay mismatch —
+is treated identically: the record is discarded and a fresh match starts.
+Resuming can only ever produce the exact table that was interrupted or a
+brand-new one; it can never produce a corrupted one.
+
+A match already marked `completed` is never resumed, even if a stale copy is
+still sitting in the current-game slot — it is history, not a live table.
+
+**Finishing a match.** The engine offers no further action once a match ends
+(`legalSystemActions` returns `continue` only from `hand-ended`, never from
+`match-ended`), so "Finish match" on the result sheet (§16) now starts the
+next match with a fresh seed instead of calling the same no-op `continue`
+hand-ended uses. By the time the button is live, the finished record has
+already moved into completed history and the resumable slot has already been
+cleared — this is what makes "completed records remain readable" true rather
+than aspirational.
+
+**Stats** (`app/src/game/stats.ts`) are a pure function over the completed
+records array: hands played, hands won, win rate, average faan (over the
+player's own wins), the player's most frequent scoring patterns, and deal-in
+count (a hand where the player's own discard, or a kong of theirs that was
+robbed, supplied the winning tile). The function never reads storage or the
+live session itself, so it structurally cannot influence gameplay. It is
+read, not derived incrementally, by a **Stats** screen reachable from the
+portrait menu — the same settings surface as Assist, Explain, corner labels
+and the rules reference — and reuses that reference's full-screen shell
+(`.rules`, `app/src/styles/learning.css`) rather than introducing a second
+overlay chrome.
+
+### Exit criteria carried forward from #10
+
+- A forced reload or backgrounding mid-hand restores the same table.
+- Completed records remain readable across app restarts.
+- Corrupt or incompatible local data fails safely — a fresh match, never a
+  crash or a corrupted engine state.
+- Stats are a pure read over completed records and cannot affect gameplay.
 
 ---
 
