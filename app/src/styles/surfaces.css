@@ -1,0 +1,218 @@
+/* Overlays, the result sheet and the portrait menu surface. */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: max(var(--space-5), var(--safe-top)) max(var(--space-6), var(--safe-right))
+    max(var(--space-5), var(--safe-bottom)) max(var(--space-6), var(--safe-left));
+  background: rgba(6, 16, 13, 0.72);
+  animation: overlay-in var(--dur-overlay) var(--ease-out);
+}
+
+@keyframes overlay-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/*
+ * The result sheet is the one place the game is allowed to interrupt, because
+ * the hand is over and there is nothing behind it to obscure. It is sized to
+ * the landscape viewport and scrolls internally rather than growing.
+ */
+.sheet {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  width: min(560px, 100%);
+  max-height: 100%;
+  overflow-y: auto;
+  padding: var(--space-6);
+  border-radius: var(--radius-surface);
+  background: var(--surface-overlay);
+  box-shadow: var(--shadow-overlay);
+  animation: sheet-in var(--dur-overlay) var(--ease-out);
+}
+
+@keyframes sheet-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sheet { animation: overlay-in var(--dur-overlay) var(--ease-out); }
+}
+
+.sheet__headline {
+  margin: 0;
+  font-size: var(--text-lg);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-tight);
+}
+
+.sheet__meta {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+
+.sheet__total {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-4);
+  margin: 0;
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--hairline);
+}
+
+.sheet__faan {
+  font-size: var(--text-xl);
+  font-weight: var(--weight-bold);
+  color: var(--brass);
+  line-height: 1;
+}
+
+.sheet__faanword {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+}
+
+.sheet__limit {
+  margin-inline-start: auto;
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+}
+
+.sheet__items,
+.sheet__payments {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.sheet__item,
+.sheet__payment {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-5);
+  font-size: var(--text-sm);
+}
+
+.sheet__itemname {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-4);
+}
+
+.sheet__itemhan {
+  font-family: var(--font-han);
+  color: var(--text-tertiary);
+}
+
+.sheet__itemfaan {
+  color: var(--text-primary);
+  font-weight: var(--weight-medium);
+}
+
+.sheet__payments {
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--hairline);
+  color: var(--text-secondary);
+}
+
+.sheet__go {
+  align-self: flex-end;
+  min-height: var(--touch-min);
+  padding: 0 var(--space-7);
+  border-radius: var(--radius-control);
+  background: var(--brass);
+  color: var(--text-on-brass);
+  font-weight: var(--weight-medium);
+  box-shadow: var(--shadow-raised);
+  transition: transform var(--dur-press) var(--ease-out);
+}
+
+.sheet__go:active {
+  transform: scale(0.97);
+}
+
+/* ------------------------------------------------------------- portrait --- */
+
+.portrait {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  height: 100dvh;
+  padding: max(var(--space-8), var(--safe-top)) var(--space-7)
+    max(var(--space-7), var(--safe-bottom));
+  background:
+    radial-gradient(120% 70% at 50% 0%, var(--table-felt) 0%, var(--table-felt-deep) 60%,
+      var(--table-edge) 100%);
+}
+
+.portrait__title {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: 0;
+  font-size: var(--text-lg);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-tight);
+}
+
+.portrait__han {
+  font-family: var(--font-han);
+  font-size: 2.75rem;
+  line-height: 1;
+  color: var(--brass);
+}
+
+.portrait__note,
+.portrait__hint {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--text-tertiary);
+}
+
+.portrait__prompt {
+  margin: 0;
+  max-width: 34ch;
+  color: var(--text-secondary);
+}
+
+.portrait__setting {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-5);
+  margin-top: auto;
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--hairline);
+}
+
+.portrait__toggle {
+  min-height: var(--touch-min);
+  padding: 0 var(--space-6);
+  border-radius: var(--radius-control);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-rest);
+  transition: transform var(--dur-press) var(--ease-out);
+}
+
+.portrait__toggle:active {
+  transform: scale(0.97);
+}
+
+/* Claim buttons that carry the tiles they would spend. */
+.claim__tiles {
+  display: inline-flex;
+  gap: 1px;
+  margin-inline-start: var(--space-3);
+}

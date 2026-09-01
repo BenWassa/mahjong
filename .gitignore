@@ -6,3 +6,7 @@ coverage/
 .env
 .env.*
 !.env.example
+
+# Production app build output and rendered QA artefacts
+app/dist/
+app/qa-out/

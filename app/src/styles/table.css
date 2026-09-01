@@ -1,0 +1,701 @@
+/*
+ * The landscape table.
+ *
+ * Composition, top to bottom: a thin status strip, the table top (three
+ * opponents around a central discard well), a permanently reserved claim band,
+ * and the player's hand. Nothing in that stack moves when a claim appears,
+ * because the band's height is reserved whether or not it holds controls.
+ */
+
+.app {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  height: 100dvh;
+  padding:
+    var(--safe-top)
+    var(--safe-right)
+    var(--safe-bottom)
+    var(--safe-left);
+  background:
+    radial-gradient(120% 90% at 50% 42%, var(--table-felt) 0%, var(--table-felt-deep) 72%,
+      var(--table-edge) 100%);
+  overflow: hidden;
+}
+
+/* --------------------------------------------------------------- status --- */
+
+.status {
+  display: flex;
+  /* Centred, not baseline: the strip mixes a 10px label with a 13px value, and
+   * baseline alignment in a fixed 26px box pushed the text against the top
+   * edge of the screen. The baseline relationship that matters is between the
+   * label and its value, which is set on the pair below. */
+  align-items: center;
+  gap: var(--space-6);
+  height: 26px;
+  padding: 0 var(--space-5);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--hairline);
+}
+
+.status__seat {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  color: var(--text-secondary);
+}
+
+/* Labels recede, values lead. Without the size step the strip was six tokens
+ * at one weight and the eye had nowhere to land. */
+.status__seatlabel {
+  font-size: 0.625rem;
+  color: var(--text-tertiary);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+}
+
+/* The one thing in the strip that leads. Everything else is reference. */
+.status__turn {
+  margin-inline-start: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--text-primary);
+}
+
+/* The turn marker is a filled brass bar, not a coloured dot: state must never
+ * depend on hue, and a bar has a shape a colourblind player can read. */
+.status__turnmark {
+  width: 3px;
+  height: 14px;
+  border-radius: 1px;
+  background: var(--brass);
+}
+
+.status__turnmark[data-self="false"] {
+  background: var(--text-tertiary);
+}
+
+.status__wall {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ------------------------------------------------------------ table top --- */
+
+.table {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) var(--claim-band-h, 44px) auto;
+  min-height: 0;
+  padding: var(--space-3) var(--space-5) var(--space-4);
+  gap: var(--space-3);
+}
+
+.tabletop {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  /* Seats size to their content and hang from the top edge. Stretching them
+   * turned two lines of text into a full-height empty box. */
+  align-items: start;
+  gap: var(--space-5);
+  min-height: 0;
+}
+
+.tabletop__centre {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: var(--space-4);
+  min-width: 0;
+  min-height: 0;
+  /* The seats hang from the top edge, but the centre column owns the whole
+   * height: the well is the table, and a well sized to its content leaves a
+   * band of empty felt between the discards and the hand. */
+  align-self: stretch;
+  height: 100%;
+}
+
+/* ----------------------------------------------------------------- seat --- */
+
+/* A seat is a label on the felt, not a card. The three of them carried three
+ * rounded rectangles that held two lines of text each and enclosed nothing. */
+.seat {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-2) 0 var(--space-3);
+  min-width: 0;
+  max-width: 34vw;
+  border-top: 2px solid transparent;
+}
+
+.seat--across {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-6);
+  max-width: none;
+}
+
+/* Turn ownership: a solid brass edge on the acting seat. Paired with the
+ * status strip text, so the signal survives without colour vision. */
+/* Turn ownership: a brass rule above the acting seat's label. A rule has a
+ * shape, so the signal survives without colour vision, and it needs no box. */
+.seat[data-active="true"] {
+  border-top-color: var(--brass);
+}
+
+.seat__head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-4);
+  white-space: nowrap;
+}
+
+.seat__wind {
+  font-family: var(--font-han);
+  font-size: var(--text-md);
+  font-weight: var(--weight-bold);
+  color: var(--brass);
+  line-height: 1;
+}
+
+.seat__where {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+}
+
+/* F-06: a bare number beside a seat name is not a score. It is labelled. */
+.seat__score {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.seat__scorelabel {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+}
+
+/* An opponent's concealed hand is a count, not thirteen drawn backs. The count
+ * is the whole of the information; the backs would spend the width the exposed
+ * melds need in order to stay readable. */
+.seat__concealed {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.seat__stack {
+  display: inline-block;
+  width: 12px;
+  height: 16px;
+  border-radius: 2px;
+  background: var(--tile-back);
+  box-shadow:
+    2px 0 0 -0.5px var(--table-edge),
+    3px 0 0 -0.5px var(--tile-back),
+    5px 0 0 -0.5px var(--table-edge);
+}
+
+.seat__melds,
+.seat__bonuses {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+/* Bonus tiles are settled score, not live state. They sit with the seat label
+ * at reduced weight so they never compete with an exposed meld. */
+.seat__bonuses {
+  opacity: 0.72;
+}
+
+.meld {
+  display: flex;
+  gap: 1px;
+  padding: 2px;
+  border-radius: var(--radius-control);
+  background: rgba(0, 0, 0, 0.22);
+}
+
+/* A concealed kong shows its two end tiles face down; the pair of backs is the
+ * conventional reading and needs no legend. */
+.meld--concealed {
+  box-shadow: inset 0 0 0 1px var(--hairline);
+}
+
+/* --------------------------------------------------------- discard well --- */
+
+/*
+ * The well is a recess in the felt, lit from above, rather than a card drawn
+ * on top of it. At the start of a hand it is legitimately empty; the round
+ * plaque at its centre is what a real table puts there.
+ */
+.well {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-5);
+  min-height: 0;
+  padding: var(--space-5);
+  /* No border and no hard edge. The recess is carried entirely by the felt
+   * getting darker toward the middle: a visible boundary around an empty
+   * centre is a container drawn around nothing, which is what it looked
+   * like. */
+  background:
+    radial-gradient(72% 82% at 50% 46%, rgba(6, 18, 14, 0.55) 0%,
+      rgba(6, 18, 14, 0.22) 46%, rgba(10, 26, 21, 0) 78%);
+}
+
+.well__grid {
+  display: grid;
+  grid-template-columns: repeat(var(--discard-columns, 12), var(--discard-tile-w));
+  grid-auto-rows: calc(var(--discard-tile-w) * var(--tile-aspect));
+  gap: 2px;
+  justify-content: center;
+  align-content: start;
+  /* Bounded to whole rows: the pile is capped in code to exactly this many,
+   * so nothing is ever cut through the middle of a face. The padding is the
+   * room the most recent tile's outline needs; without it the clip shaves the
+   * outline into a stray mark under the pile. */
+  padding: 3px;
+  max-height: calc(
+    var(--discard-rows, 3) * (var(--discard-tile-w) * var(--tile-aspect) + 2px) + 6px
+  );
+  /* Never shrink below the rows the geometry sized this for. As a flex child
+   * it would otherwise absorb the squeeze and clip its bottom row, which is
+   * exactly the half-face the row count exists to prevent. */
+  flex: 0 0 auto;
+  overflow: hidden;
+}
+
+/* The tile currently on offer sits above the pile, at hand size, so the claim
+ * decision is made against a face the player can actually read. */
+/* Reserved for the taller of the plaque and the offered tile. */
+.well__focus {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: calc(var(--tile-h) + var(--space-6));
+  flex: 0 0 auto;
+}
+
+/*
+ * The offered tile is the one face a claim decision turns on, so it is drawn
+ * at hand size and lit, standing on the felt rather than inside a panel. The
+ * panel it used to sit in was a container drawn around a single object.
+ */
+.offer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.offer .tile {
+  box-shadow: var(--shadow-lifted);
+  outline: 2px solid var(--state-pending);
+  outline-offset: 2px;
+  border-radius: var(--radius-tile);
+}
+
+.offer__label {
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+}
+
+/* ----------------------------------------------------------- claim band --- */
+
+/* Height is reserved unconditionally. If nothing is claimable the band is
+ * empty and play continues with no prompt (PRD §7), but the hand does not
+ * move under the thumb when it fills. */
+.claimband {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  min-height: var(--claim-band-h, 44px);
+}
+
+.claimband__spacer {
+  flex: 1 1 auto;
+}
+
+.claim {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  min-width: 62px;
+  min-height: var(--touch-min);
+  padding: 0 var(--space-5);
+  border-radius: var(--radius-control);
+  background: var(--surface-raised);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-raised);
+  transition:
+    transform var(--dur-press) var(--ease-out),
+    background-color var(--dur-press) var(--ease-out);
+}
+
+.claim:active {
+  transform: scale(0.97);
+}
+
+.claim__han {
+  font-family: var(--font-han);
+  font-size: var(--text-lg);
+  font-weight: var(--weight-bold);
+  line-height: 1;
+}
+
+.claim__en {
+  font-size: var(--text-xs);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+/* Win is the only affirmative control on the table and is drawn as the only
+ * filled one. Pass sits at the opposite end of the band; the two are never
+ * adjacent (PRD §7). */
+.claim--win {
+  background: var(--brass);
+  color: var(--text-on-brass);
+  box-shadow: var(--shadow-lifted);
+}
+
+.claim--win .claim__en {
+  color: rgba(23, 19, 10, 0.72);
+}
+
+.claim--pass {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--hairline-strong);
+}
+
+/* --------------------------------------------------------------- hand ---- */
+
+.handrow {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: var(--space-5);
+  min-height: 0;
+}
+
+.hand {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--tile-gap);
+  /* The hand is capped rather than stretched: past the readable ceiling the
+   * spare width belongs to the discard well, not to a wider hand. */
+  width: var(--hand-w);
+  justify-content: center;
+}
+
+.hand__slot {
+  position: relative;
+  width: var(--tile-w);
+  height: var(--tile-h);
+  flex: 0 0 auto;
+  padding: 0;
+  border-radius: var(--radius-tile);
+  transition: transform var(--dur-lift) var(--ease-out);
+  will-change: transform;
+}
+
+/* The hit area is padded up to the touch floor without changing the drawn
+ * tile, so a 35px tile on a narrow phone is still a 44px target. */
+.hand__slot::after {
+  content: "";
+  position: absolute;
+  inset: calc((var(--tile-h) - var(--touch-min)) / -2)
+    calc((var(--tile-w) - var(--touch-min)) / -2);
+  min-width: var(--touch-min);
+  min-height: var(--touch-min);
+}
+
+/* Selection is a lift. The raised state is the confirmation; there is no
+ * dialog, so this displacement has to be unmistakable rather than tasteful. */
+.hand__slot[data-selected="true"] {
+  transform: translateY(-14%);
+}
+
+.hand__slot[data-selected="true"] .tile {
+  box-shadow: var(--shadow-lifted);
+}
+
+/* Non-colour differentiation for the selected tile: the lift, plus a brass
+ * underline in the gap it left behind. */
+.hand__slot[data-selected="true"]::before {
+  content: "";
+  position: absolute;
+  inset-inline: 12%;
+  bottom: -5px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--state-selected);
+}
+
+.hand__slot[data-discardable="false"] {
+  opacity: var(--disabled-opacity);
+}
+
+.hand__slot:active {
+  transition-duration: var(--dur-press);
+}
+
+.hand__melds {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-3);
+}
+
+/* -------------------------------------------------------------- tiles ----- */
+
+.tile {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: var(--radius-tile);
+  filter: drop-shadow(0 1px 1px var(--tile-shadow));
+}
+
+.tile--hand {
+  width: var(--tile-w);
+  height: var(--tile-h);
+}
+
+.tile--opponent {
+  width: var(--opp-tile-w);
+  height: calc(var(--opp-tile-w) * var(--tile-aspect));
+}
+
+.tile--discard {
+  width: var(--discard-tile-w);
+  height: calc(var(--discard-tile-w) * var(--tile-aspect));
+}
+
+.tile--meld {
+  width: var(--meld-tile-w);
+  height: calc(var(--meld-tile-w) * var(--tile-aspect));
+}
+
+.tile--offer {
+  width: var(--tile-w);
+  height: var(--tile-h);
+}
+
+.tile--dimmed {
+  opacity: 0.5;
+}
+
+/* The most recent discard is ringed so the pile has a reading order. */
+.well__cell[data-latest="true"] .tile {
+  outline: 2px solid var(--state-pending);
+  outline-offset: 1px;
+  border-radius: var(--radius-tile);
+}
+
+/* ------------------------------------------------------------- plaque ----- */
+
+/*
+ * The round marker at the centre of the felt. Brass on dark, the way the
+ * fittings on a parlour table are, and the only ornamental object on the
+ * table: everything else earns its place by carrying state.
+ */
+.plaque {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  padding: var(--space-3) var(--space-6);
+  border-radius: var(--radius-surface);
+  box-shadow: inset 0 0 0 1px rgba(176, 141, 63, 0.34);
+}
+
+.plaque__wind {
+  font-family: var(--font-han);
+  font-size: 1.5rem;
+  font-weight: var(--weight-bold);
+  line-height: 1;
+  color: var(--brass);
+}
+
+.plaque__meta {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-4);
+  font-size: var(--text-xs);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+.plaque__round {
+  color: var(--text-secondary);
+}
+
+.plaque__wall {
+  font-size: var(--text-md);
+  letter-spacing: normal;
+  color: var(--text-primary);
+}
+
+/* Dev-only tile specimen sheet. Not reachable from the production entry. */
+.specimen {
+  padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-7);
+}
+
+.specimen__size {
+  margin: 0 0 var(--space-4);
+  font-size: var(--text-sm);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+.specimen__row {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.specimen__label {
+  width: 90px;
+  flex: 0 0 auto;
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+}
+
+.specimen__cell {
+  display: block;
+  flex: 0 0 auto;
+}
+
+.specimen__cell .tile {
+  width: 100%;
+  height: 100%;
+}
+
+/* ------------------------------------------------------------- motion ----- */
+
+/*
+ * Motion budget.
+ *
+ * Every animation here is justified by frequency. A discard happens roughly
+ * eighteen times a hand and a bot move more often than that, so the things
+ * that fire constantly get the shortest durations or no motion at all; only
+ * the result sheet, which a player sees once a hand, is allowed to take its
+ * time. Nothing below gates a legal action: they are all transitions on
+ * elements that are already interactive.
+ *
+ * Deliberately absent: an entrance on each tile joining the discard pile. It
+ * would fire thirty times a hand to tell the player something the outline on
+ * the most recent tile already says.
+ */
+
+/* Press feedback belongs on anything pressable, not only on buttons that look
+ * like buttons. A tile that does not answer the thumb feels broken. */
+.hand__slot:not([disabled]):active {
+  transform: scale(0.97);
+}
+
+.hand__slot[data-selected="true"]:not([disabled]):active {
+  transform: translateY(-14%) scale(0.97);
+}
+
+/*
+ * The claim band's controls appear in a space the layout already reserved, so
+ * they fade up in place rather than pushing anything. Entering, so ease-out.
+ */
+.claim {
+  opacity: 1;
+  transform: translateY(0);
+  transition:
+    transform var(--dur-press) var(--ease-out),
+    background-color var(--dur-press) var(--ease-out),
+    opacity var(--dur-lift) var(--ease-out);
+}
+
+@starting-style {
+  .claim {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+}
+
+/*
+ * The offered tile is the one arrival worth animating: it is the object a
+ * claim decision is about, and it needs to read as having been put down
+ * rather than as having always been there. Never from scale(0); nothing in
+ * the world appears out of nothing.
+ */
+.offer .tile {
+  transition:
+    opacity var(--dur-move) var(--ease-out),
+    transform var(--dur-move) var(--ease-settle);
+}
+
+@starting-style {
+  .offer .tile {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+}
+
+/* The turn marker changes value, not position. Colour is the only channel
+ * that moves, which keeps it safe under reduced motion without a special
+ * case. */
+.status__turnmark {
+  transition: background-color var(--dur-move) var(--ease-out);
+}
+
+/*
+ * Reduced motion keeps everything that explains a state change and removes
+ * everything that moves through space. The lift stays, because it is the
+ * confirmation that a tile is armed to be discarded and removing it would
+ * remove a safety affordance rather than an ornament; it simply arrives
+ * without a transition.
+ */
+@media (prefers-reduced-motion: reduce) {
+  @starting-style {
+    .claim {
+      opacity: 0;
+      transform: none;
+    }
+    .offer .tile {
+      opacity: 0;
+      transform: none;
+    }
+  }
+
+  .hand__slot:not([disabled]):active,
+  .hand__slot[data-selected="true"]:not([disabled]):active {
+    transform: none;
+  }
+
+  .hand__slot[data-selected="true"]:not([disabled]):active {
+    transform: translateY(-14%);
+  }
+
+  .claim:active,
+  .sheet__go:active,
+  .portrait__toggle:active {
+    transform: none;
+  }
+}

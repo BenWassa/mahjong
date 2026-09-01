@@ -1,6 +1,7 @@
 export { MahjongGame, ReplayMismatchError, newGame, replayGame } from "./adapter.js";
 export type {
   BonusTileKind,
+  Discard,
   FaanBreakdown,
   FaanItem,
   GameAction,

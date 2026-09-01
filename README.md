@@ -6,7 +6,7 @@ A clean, modern Hong Kong Old Style Mahjong game for mobile. Offline-first, rule
 
 **V1 build in progress.**
 
-Rules, engine, scoring, the correctness gate and deterministic heuristic bots are complete. The mobile interaction prototype passed its real-Android landscape gate; production presentation and the offline PWA are next.
+Rules, engine, scoring, the correctness gate and deterministic heuristic bots are complete. The mobile interaction prototype passed its real-Android landscape gate, and the production table, traditional SVG tile set and installable offline PWA are built. Learning aids, persistence and Android packaging are next.
 
 ## V1
 
@@ -20,6 +20,22 @@ Single-player Hong Kong Old Style Mahjong against three heuristic bots, shipped 
 - [V1 engine architecture](docs/ENGINE_ARCHITECTURE.md)
 - [V1 heuristic bot design and evaluation](docs/BOTS.md)
 - [V1.6 mobile interaction prototype and device gate](docs/INTERACTION_PROTOTYPE.md)
+- [Production design authority](docs/DESIGN.md) — the table, geometry, tokens, motion and accessibility decisions
 - [Parent programme issue](../../issues/1)
 
-Where code, a dependency, or the in-app rules reference disagrees with `docs/HKOS_RULES.md`, the document wins and the other side is a bug.
+Where code, a dependency, or the in-app rules reference disagrees with `docs/HKOS_RULES.md`, the document wins and the other side is a bug. Where the production app and `docs/DESIGN.md` disagree, one of them is a bug; where `docs/DESIGN.md` and `docs/HKOS_RULES.md` disagree about game behaviour, the rules contract wins.
+
+## Running it
+
+```sh
+npm ci && npm run check          # engine, scoring, bots, correctness gate
+npm --prefix app ci              # once
+npm run app                      # the production table at localhost:5174
+npm run app:phone                # same, reachable from a phone on the LAN
+npm run check:all                # the whole repository gate
+npm run qa                       # rendered responsive QA across the viewport matrix
+```
+
+The production app lives in [`app/`](app). It imports the engine and bots
+directly from `src/`, so a rules or bot change cannot silently diverge from
+what the table plays.
