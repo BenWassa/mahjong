@@ -29,11 +29,16 @@ export function DiscardWell({
   readonly offeredFrom: string | null;
   readonly view: PublicGameState;
 }): JSX.Element {
-  // A claimed tile is not in the pile any more: it is in the claimer's exposed
-  // meld, which is where a player looks for it. Drawing it in both places gave
-  // the pile a greyed-out tile that read as a broken one and duplicated a tile
-  // that is already on show a few centimetres away.
-  const inPile = discards.filter((discard) => discard.claimedBy === null);
+  // Two tiles are in the engine's discard list but do not belong in the pile.
+  //
+  // A claimed tile is in the claimer's exposed meld, which is where a player
+  // looks for it. A tile still on offer has not settled anywhere yet: it is
+  // already drawn at hand size above the pile, and drawing it twice makes the
+  // player check whether they are looking at one tile or two at the exact
+  // moment they are deciding whether to claim it.
+  const inPile = discards.filter(
+    (discard) => discard.claimedBy === null && discard.tile.id !== offered?.id,
+  );
 
   // Capped at what the well can actually show. Older discards fall off the
   // front: recent history is what a decision uses.

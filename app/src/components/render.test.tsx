@@ -6,6 +6,7 @@ import { DEFAULT_RULES_PROFILE, newGame, type TileKind } from "@engine";
 import { tileName, tileShortLabel } from "../game/labels";
 import { Tile } from "../tiles/Tile";
 import { ClaimBand } from "./ClaimBand";
+import { DiscardWell } from "./DiscardWell";
 import { PlayerHand } from "./PlayerHand";
 import { SeatCard } from "./SeatCard";
 import { StatusStrip } from "./StatusStrip";
@@ -192,5 +193,82 @@ describe("opponents and status", () => {
     const markup = renderToStaticMarkup(<StatusStrip view={view} />);
     expect(markup).toMatch(/Your turn|to play|Claim open|Hand over/);
     expect(markup).toContain('role="status"');
+  });
+});
+
+describe("the discard well", () => {
+  const tiles = hand.slice(0, 4);
+  const [first, second, third, fourth] = tiles;
+  if (
+    first === undefined ||
+    second === undefined ||
+    third === undefined ||
+    fourth === undefined
+  ) {
+    throw new Error("short hand");
+  }
+
+  const discards = [
+    { index: 0, seat: 1 as const, tile: first, claimedBy: null, claimType: null },
+    { index: 1, seat: 2 as const, tile: second, claimedBy: 3 as const, claimType: "pung" as const },
+    { index: 2, seat: 3 as const, tile: third, claimedBy: null, claimType: null },
+    { index: 3, seat: 1 as const, tile: fourth, claimedBy: null, claimType: null },
+  ];
+
+  it("leaves a claimed tile out of the pile, because it is in a meld now", () => {
+    const markup = renderToStaticMarkup(
+      <DiscardWell
+        discards={discards}
+        columns={12}
+        rows={3}
+        offered={null}
+        offeredFrom={null}
+        view={view}
+      />,
+    );
+    expect(markup).toContain(`Discard pile, 3 tiles`);
+  });
+
+  it("leaves the tile currently on offer out of the pile", () => {
+    // It is already drawn at hand size above the pile. Drawn twice, the player
+    // has to work out whether they are looking at one tile or two at the exact
+    // moment they are deciding whether to claim it.
+    const markup = renderToStaticMarkup(
+      <DiscardWell
+        discards={discards}
+        columns={12}
+        rows={3}
+        offered={fourth}
+        offeredFrom="Left"
+        view={view}
+      />,
+    );
+    expect(markup).toContain(`Discard pile, 2 tiles`);
+    expect(markup).toContain("Left discarded");
+  });
+
+  it("shows the round plaque when nothing is on offer, and not when something is", () => {
+    const idle = renderToStaticMarkup(
+      <DiscardWell
+        discards={discards}
+        columns={12}
+        rows={3}
+        offered={null}
+        offeredFrom={null}
+        view={view}
+      />,
+    );
+    const claiming = renderToStaticMarkup(
+      <DiscardWell
+        discards={discards}
+        columns={12}
+        rows={3}
+        offered={fourth}
+        offeredFrom="Left"
+        view={view}
+      />,
+    );
+    expect(idle).toContain("plaque");
+    expect(claiming).not.toContain("plaque");
   });
 });

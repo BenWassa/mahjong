@@ -264,9 +264,12 @@
   justify-content: center;
   align-content: start;
   /* Bounded to whole rows: the pile is capped in code to exactly this many,
-   * so nothing is ever cut through the middle of a face. */
+   * so nothing is ever cut through the middle of a face. The padding is the
+   * room the most recent tile's outline needs; without it the clip shaves the
+   * outline into a stray mark under the pile. */
+  padding: 3px;
   max-height: calc(
-    var(--discard-rows, 3) * (var(--discard-tile-w) * var(--tile-aspect) + 2px)
+    var(--discard-rows, 3) * (var(--discard-tile-w) * var(--tile-aspect) + 2px) + 6px
   );
   overflow: hidden;
   min-height: 0;
