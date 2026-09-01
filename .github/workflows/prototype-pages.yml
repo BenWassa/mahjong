@@ -3,7 +3,10 @@ name: Deploy #7 interaction prototype to Pages
 on:
   push:
     branches:
-      - "claude/mahjong-mobile-interaction-urpf0p"
+      - "main"
+    paths:
+      - "prototype/**"
+      - ".github/workflows/prototype-pages.yml"
   workflow_dispatch:
 
 permissions:
