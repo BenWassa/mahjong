@@ -5,6 +5,7 @@ import type { Seat, TileId } from "@engine";
 import { describeWaitingTiles, isBelowMinimumFaanWin, suggestDiscard } from "../game/assist";
 import { detectConcepts, type ConceptId, type LearningProgress } from "../game/explain";
 import { geometryVariables } from "../game/geometry";
+import { hapticClaim, hapticDiscard, hapticResult } from "../game/haptics";
 import {
   claimActions,
   discardableTiles,
@@ -76,6 +77,7 @@ export function TableView({
         const result = reduceInteraction(current, { type: "tap-tile", tileId }, discardable);
         if (result.discard !== null) {
           act({ type: "discard", seat: view.viewer, tileId: result.discard });
+          hapticDiscard();
         }
         return result.state;
       });
@@ -87,6 +89,7 @@ export function TableView({
     (action: ClaimAction) => {
       setInteraction(initialInteraction);
       act(action);
+      if (action.type !== "pass") hapticClaim();
     },
     [act],
   );
@@ -180,7 +183,10 @@ export function TableView({
     if (shown.winSources) learning.markSeen("win-sources");
     if (shown.faanBreakdown) learning.markSeen("faan-breakdown");
     if (shown.exhaustiveDraw) learning.markSeen("exhaustive-draw");
-  }, [endedPhase, learning]);
+    if (endedPhase !== null) {
+      hapticResult(endedPhase.result.outcome === "win" && endedPhase.result.winner === view.viewer);
+    }
+  }, [endedPhase, learning, view.viewer]);
 
   // Assist's discard suggestion and waiting-tiles readout (#9) share the
   // claim band's reserved empty space: the discard decision only exists when

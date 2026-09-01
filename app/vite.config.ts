@@ -85,11 +85,17 @@ self.addEventListener("fetch", (event) => {
 // The production app and the headless engine share one source tree. The engine
 // is imported directly rather than through a build artefact so that a rules or
 // bot change cannot silently diverge from what the table plays.
+// Capacitor bundles the build into the native app and serves it from the
+// webview's own root, not from a GitHub Pages subpath — a root-relative
+// "/mahjong/…" asset URL 404s there. `npm run build:capacitor` (#11) sets
+// this so the same build tooling can target either host correctly.
+const capacitorBuild = process.env.CAPACITOR_BUILD === "1";
+
 export default defineConfig(({ command, isPreview }) => ({
   // GitHub Pages serves project sites from /<repo>/. Preview has to agree with
   // build or it serves a shell whose asset URLs it cannot resolve; only the dev
   // server stays at the root, where the phone-over-LAN workflow expects it.
-  base: command === "build" || isPreview === true ? "/mahjong/" : "/",
+  base: capacitorBuild ? "./" : command === "build" || isPreview === true ? "/mahjong/" : "/",
   plugins: [react(), offlineServiceWorker()],
   resolve: {
     alias: [

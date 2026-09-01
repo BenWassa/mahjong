@@ -9,4 +9,5 @@ coverage/
 
 # Production app build output and rendered QA artefacts
 app/dist/
+app/dist-capacitor/
 app/qa-out/

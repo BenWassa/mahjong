@@ -2,7 +2,12 @@ import eslint from "@eslint/js";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["dist/", "dev-dist/", "node_modules/", "qa-out/"] },
+  {
+    // android/ is the generated Capacitor native platform (#11): its web
+    // assets are a synced copy of dist-capacitor/, and its Java/Gradle files
+    // are not JS/TS this config's parsers understand.
+    ignores: ["dist/", "dist-capacitor/", "dev-dist/", "node_modules/", "qa-out/", "android/"],
+  },
   {
     files: ["**/*.js", "**/*.mjs"],
     extends: [eslint.configs.recommended],
