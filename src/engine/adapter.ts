@@ -4,12 +4,14 @@ import {
   legalSystemActions,
   reduceGame,
 } from "./scored-core.js";
+import { isStructurallyComplete, waitingTiles } from "./learning.js";
 import { projectPublicState } from "./redaction.js";
 import type {
   FaanBreakdown,
   GameAction,
   GameRecord,
   InternalGameState,
+  OrdinaryTileKind,
   PublicGameState,
   RulesProfile,
   Seat,
@@ -64,6 +66,24 @@ export class MahjongGame {
   /** Trusted persistence/debug record. Never pass this hidden-information log to a bot. */
   public gameRecord(): GameRecord {
     return cloneRecord(this.#internal.record);
+  }
+
+  /**
+   * Assist-layer hint (#9): tile kinds that would complete the seat's own
+   * hand right now. Empty whenever the hand is not at a resting count, i.e.
+   * mid-turn holding an extra drawn tile. Reads only the seat's own tiles.
+   */
+  public waitingTiles(seat: Seat = 0): readonly OrdinaryTileKind[] {
+    return waitingTiles(this.#internal, seat);
+  }
+
+  /**
+   * Assist-layer hint (#9): whether the seat's tiles, exactly as held right
+   * now, already form a legal winning shape structurally, independent of the
+   * minimum-faan floor. Reads only the seat's own tiles.
+   */
+  public isStructurallyComplete(seat: Seat = 0): boolean {
+    return isStructurallyComplete(this.#internal, seat);
   }
 }
 

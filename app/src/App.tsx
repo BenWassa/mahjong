@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState, type JSX } from "react";
 
+import { RulesReference } from "./components/RulesReference";
 import { TableView } from "./components/TableView";
+import { useLearningProgress } from "./game/explain";
 import { useGameSession } from "./game/useGameSession";
 import type { CornerLabelMode } from "./tiles/Tile";
 
@@ -39,11 +41,21 @@ function initialSeed(): string {
   return params.get("seed") ?? `hand-${String(Date.now())}`;
 }
 
+/**
+ * Three independent learning controls (#9), all default on for the initial
+ * learning period and each toggled from the portrait menu, which is already
+ * this app's settings surface (§ below). None of them is ever required to
+ * make a legal move.
+ */
 export function App(): JSX.Element {
   const landscape = useIsLandscape();
   const [seed] = useState(initialSeed);
-  const [cornerLabel, setCornerLabel] = useState<CornerLabelMode>("off");
+  const [cornerLabel, setCornerLabel] = useState<CornerLabelMode>("rank");
+  const [assistOn, setAssistOn] = useState(true);
+  const [explainOn, setExplainOn] = useState(true);
+  const [showRules, setShowRules] = useState(false);
   const session = useGameSession(seed);
+  const learning = useLearningProgress();
 
   const cycleLabel = useCallback(() => {
     setCornerLabel((current) => {
@@ -51,6 +63,10 @@ export function App(): JSX.Element {
       return next ?? "off";
     });
   }, []);
+
+  if (showRules) {
+    return <RulesReference onClose={() => { setShowRules(false); }} />;
+  }
 
   if (!landscape) {
     return (
@@ -66,24 +82,75 @@ export function App(): JSX.Element {
           once, and portrait cannot seat them at a size worth reading.
         </p>
 
-        <div className="portrait__setting">
-          <span id="label-mode">Corner labels</span>
-          <button
-            type="button"
-            className="portrait__toggle"
-            aria-describedby="label-mode"
-            onClick={cycleLabel}
-          >
-            {LABEL_NAME[cornerLabel]}
-          </button>
+        <div className="portrait__settings">
+          <div className="portrait__setting">
+            <span id="assist-mode">Assist</span>
+            <button
+              type="button"
+              className="portrait__toggle"
+              aria-describedby="assist-mode"
+              aria-pressed={assistOn}
+              onClick={() => { setAssistOn((current) => !current); }}
+            >
+              {assistOn ? "On" : "Off"}
+            </button>
+          </div>
+
+          <div className="portrait__setting">
+            <span id="explain-mode">Explain</span>
+            <button
+              type="button"
+              className="portrait__toggle"
+              aria-describedby="explain-mode"
+              aria-pressed={explainOn}
+              onClick={() => { setExplainOn((current) => !current); }}
+            >
+              {explainOn ? "On" : "Off"}
+            </button>
+          </div>
+
+          <div className="portrait__setting">
+            <span id="label-mode">Corner labels</span>
+            <button
+              type="button"
+              className="portrait__toggle"
+              aria-describedby="label-mode"
+              onClick={cycleLabel}
+            >
+              {LABEL_NAME[cornerLabel]}
+            </button>
+          </div>
+
+          <div className="portrait__setting">
+            <span id="rules-link">Full rules</span>
+            <button
+              type="button"
+              className="portrait__toggle"
+              aria-describedby="rules-link"
+              onClick={() => { setShowRules(true); }}
+            >
+              Reference
+            </button>
+          </div>
         </div>
         <p className="portrait__hint">
-          Labels are a learning layer over the traditional face. They never
-          replace it.
+          Assist highlights legal actions and can suggest a discard. Explain
+          shows a short note the first time a rule matters. Corner labels are
+          a learning layer over the traditional face. All three switch off
+          independently, and none is ever required to make a legal move.
         </p>
       </div>
     );
   }
 
-  return <TableView session={session} cornerLabel={cornerLabel} />;
+  return (
+    <TableView
+      session={session}
+      cornerLabel={cornerLabel}
+      matchSeed={seed}
+      assistOn={assistOn}
+      explainOn={explainOn}
+      learning={learning}
+    />
+  );
 }

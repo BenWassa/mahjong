@@ -187,12 +187,21 @@
   color: var(--text-secondary);
 }
 
+/* The portrait screen is this app's settings surface: the three independent
+ * learning controls (#9) and the rules reference live here, grouped as one
+ * block pinned to the bottom of the column. */
+.portrait__settings {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin-top: auto;
+}
+
 .portrait__setting {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-5);
-  margin-top: auto;
   padding-top: var(--space-5);
   border-top: 1px solid var(--hairline);
 }

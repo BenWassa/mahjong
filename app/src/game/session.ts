@@ -5,6 +5,7 @@ import {
   type BotController,
   type GameAction,
   type MahjongGame,
+  type OrdinaryTileKind,
   type PublicGameState,
   type RulesProfile,
   type Seat,
@@ -40,6 +41,14 @@ export interface SessionSnapshot {
   /** True while an opponent is thinking, so the table can say whose turn it is. */
   readonly waitingOn: Seat | null;
   readonly lastAction: GameAction | null;
+  /**
+   * Assist-layer hints (#9), read from the player's own hand only. Tile kinds
+   * that would complete it (empty except at a resting hand count), and
+   * whether it already forms a legal winning shape structurally, independent
+   * of the minimum-faan floor.
+   */
+  readonly waitingTiles: readonly OrdinaryTileKind[];
+  readonly structurallyComplete: boolean;
 }
 
 export interface SessionOptions {
@@ -88,6 +97,8 @@ export class GameSession {
       legalActions: playerActions(this.#game, PLAYER_SEAT),
       waitingOn: pending,
       lastAction: this.#lastAction,
+      waitingTiles: this.#game.waitingTiles(PLAYER_SEAT),
+      structurallyComplete: this.#game.isStructurallyComplete(PLAYER_SEAT),
     };
   }
 

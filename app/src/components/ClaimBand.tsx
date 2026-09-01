@@ -43,17 +43,32 @@ export function ClaimBand({
   actions,
   hand,
   onClaim,
+  assistOn = false,
+  assistHint = null,
 }: {
   readonly actions: readonly ClaimAction[];
   readonly hand: readonly TileType[];
   readonly onClaim: (action: ClaimAction) => void;
+  /** Assist (#9): rings each legal claim with one more non-colour signal. */
+  readonly assistOn?: boolean;
+  /**
+   * Assist's discard suggestion or waiting-tiles readout, shown only in the
+   * band's reserved empty space — it can never displace a real claim, and
+   * the two cases it covers (the player's own discard turn, and every other
+   * moment) never occur together.
+   */
+  readonly assistHint?: JSX.Element | null;
 }): JSX.Element {
+  if (actions.length === 0) {
+    return (
+      <div className="claimband" role="group" aria-label="No claim available">
+        {assistHint}
+      </div>
+    );
+  }
+
   return (
-    <div
-      className="claimband"
-      role="group"
-      aria-label={actions.length === 0 ? "No claim available" : "Claim options"}
-    >
+    <div className="claimband" role="group" aria-label="Claim options">
       {actions.map((action, index) => {
         const label = CLAIM_LABEL[action.type];
         const contributed = contributedTiles(action, hand);
@@ -74,6 +89,7 @@ export function ClaimBand({
             <button
               type="button"
               className={`claim claim--${action.type === "pass" ? "pass" : action.type === "win" ? "win" : "meld"}`}
+              data-assist={assistOn && action.type !== "pass"}
               onClick={() => { onClaim(action); }}
               aria-label={`${label.en}${detail}`}
             >

@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useMemo, useState, type JSX } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from "react";
 
 import type { Seat, TileId } from "@engine";
 
+import { describeWaitingTiles, isBelowMinimumFaanWin, suggestDiscard } from "../game/assist";
+import { detectConcepts, type ConceptId, type LearningProgress } from "../game/explain";
 import { geometryVariables } from "../game/geometry";
 import {
   claimActions,
@@ -12,11 +14,13 @@ import {
   type HandInteraction,
 } from "../game/interaction";
 import { seatPosition, seatPositionName } from "../game/labels";
+import type { SessionSnapshot } from "../game/session";
 import type { SessionHandle } from "../game/useGameSession";
 import { useTableGeometry } from "../game/useTableGeometry";
 import type { CornerLabelMode } from "../tiles/Tile";
 import { ClaimBand } from "./ClaimBand";
 import { DiscardWell } from "./DiscardWell";
+import { ExplainBanner } from "./ExplainBanner";
 import { PlayerHand } from "./PlayerHand";
 import { ResultOverlay } from "./ResultOverlay";
 import { SeatCard } from "./SeatCard";
@@ -27,9 +31,17 @@ const OPPONENT_SEATS: readonly Seat[] = [1, 2, 3];
 export function TableView({
   session,
   cornerLabel,
+  matchSeed,
+  assistOn,
+  explainOn,
+  learning,
 }: {
   readonly session: SessionHandle;
   readonly cornerLabel: CornerLabelMode;
+  readonly matchSeed: string;
+  readonly assistOn: boolean;
+  readonly explainOn: boolean;
+  readonly learning: LearningProgress;
 }): JSX.Element {
   const { snapshot, act, advance, scoreBreakdown } = session;
   const { view, legalActions } = snapshot;
@@ -103,9 +115,84 @@ export function TableView({
       (seat) => seatPosition(seat, view.viewer) === position,
     ) ?? 1;
 
+  const belowMinimumFaanWin = useMemo(() => isBelowMinimumFaanWin(snapshot), [snapshot]);
+
+  // Explain's non-blocking banner (#9): diffs the previous snapshot against
+  // this one, so a concept fires exactly on the turn it first becomes true,
+  // and only the first still-unseen one of those is shown.
+  const previousSnapshotRef = useRef<SessionSnapshot | null>(null);
+  const [activeConcept, setActiveConcept] = useState<ConceptId | null>(null);
+  useEffect(() => {
+    const previous = previousSnapshotRef.current;
+    previousSnapshotRef.current = snapshot;
+    if (!explainOn) return;
+    const triggered = detectConcepts(previous, snapshot, belowMinimumFaanWin);
+    const next = triggered.find((id) => !learning.has(id));
+    if (next !== undefined) {
+      learning.markSeen(next);
+      setActiveConcept(next);
+    }
+  }, [snapshot, explainOn, belowMinimumFaanWin, learning]);
+
+  // The three explain notes anchored to the result sheet fire at most once
+  // each. Latched to the hand they first appear on, computed during render
+  // from the progress so far, so the mark-as-seen effect below cannot make
+  // one vanish mid-display on the same result.
+  const resultExplainRef = useRef({
+    handIndex: -1,
+    winSources: false,
+    faanBreakdown: false,
+    exhaustiveDraw: false,
+  });
+  if (endedPhase !== null && resultExplainRef.current.handIndex !== endedPhase.result.handIndex) {
+    const isWin = endedPhase.result.outcome === "win";
+    const isDraw = endedPhase.result.outcome === "draw";
+    resultExplainRef.current = {
+      handIndex: endedPhase.result.handIndex,
+      winSources: explainOn && isWin && !learning.has("win-sources"),
+      faanBreakdown: explainOn && isWin && !learning.has("faan-breakdown"),
+      exhaustiveDraw: explainOn && isDraw && !learning.has("exhaustive-draw"),
+    };
+  }
+  useEffect(() => {
+    const shown = resultExplainRef.current;
+    if (shown.winSources) learning.markSeen("win-sources");
+    if (shown.faanBreakdown) learning.markSeen("faan-breakdown");
+    if (shown.exhaustiveDraw) learning.markSeen("exhaustive-draw");
+  }, [endedPhase, learning]);
+
+  // Assist's discard suggestion and waiting-tiles readout (#9) share the
+  // claim band's reserved empty space: the discard decision only exists when
+  // nothing is claimable, and "waiting on" is only defined at every other
+  // moment, so the two never need to be shown at once.
+  const suggestion = useMemo(() => {
+    if (!assistOn || claims.length > 0) return null;
+    if (view.phase.kind !== "awaiting-discard" || view.phase.seat !== view.viewer) return null;
+    return suggestDiscard(snapshot, matchSeed);
+  }, [assistOn, claims.length, view.phase, view.viewer, snapshot, matchSeed]);
+  const waitingHint = useMemo(() => {
+    if (!assistOn || claims.length > 0 || suggestion !== null) return null;
+    if (snapshot.waitingTiles.length === 0) return null;
+    return describeWaitingTiles(snapshot.waitingTiles);
+  }, [assistOn, claims.length, suggestion, snapshot.waitingTiles]);
+  const assistHint =
+    suggestion !== null ? (
+      <p className="claimband__hint">
+        Suggested: discard <strong>{suggestion.tileName}</strong> — {suggestion.reason}
+      </p>
+    ) : waitingHint !== null ? (
+      <p className="claimband__hint">
+        Waiting on: <strong>{waitingHint}</strong>
+      </p>
+    ) : null;
+
   return (
     <div className="app" style={geometryVariables(geometry)}>
       <StatusStrip view={view} />
+
+      {activeConcept !== null && (
+        <ExplainBanner concept={activeConcept} onDismiss={() => { setActiveConcept(null); }} />
+      )}
 
       <main className="table" aria-label="Mahjong table">
         <div className="tabletop">
@@ -138,7 +225,13 @@ export function TableView({
           />
         </div>
 
-        <ClaimBand actions={claims} hand={hand} onClaim={onClaim} />
+        <ClaimBand
+          actions={claims}
+          hand={hand}
+          onClaim={onClaim}
+          assistOn={assistOn}
+          assistHint={assistHint}
+        />
 
         <PlayerHand
           tiles={hand}
@@ -157,6 +250,9 @@ export function TableView({
           viewer={view.viewer}
           isMatchEnd={endedPhase.kind === "match-ended"}
           onContinue={advance}
+          explainWinSources={resultExplainRef.current.winSources}
+          explainFaanBreakdown={resultExplainRef.current.faanBreakdown}
+          explainExhaustiveDraw={resultExplainRef.current.exhaustiveDraw}
         />
       )}
     </div>
