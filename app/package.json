@@ -6,6 +6,11 @@
   "description": "Production Hong Kong Old Style Mahjong table and installable offline PWA.",
   "scripts": {
     "build": "vite build",
+    "build:capacitor": "rm -rf dist-capacitor && CAPACITOR_BUILD=1 vite build --outDir dist-capacitor",
+    "cap:android:debug": "npm run build:capacitor && npx cap sync android && cd android && ./gradlew assembleDebug",
+    "cap:check": "npm run cap:sync && node scripts/capacitor-check.mjs",
+    "cap:doctor": "npx cap doctor",
+    "cap:sync": "npm run build:capacitor && npx cap sync android",
     "check": "npm run lint && npm run typecheck && npm run test:run && npm run build",
     "dev": "vite",
     "icons": "node scripts/make-icons.mjs",
@@ -15,17 +20,21 @@
     "preview": "vite preview",
     "qa": "node scripts/visual-qa.mjs",
     "qa:a11y": "node scripts/a11y-check.mjs",
-    "qa:all": "npm run qa && npm run qa:pwa && npm run qa:a11y",
+    "qa:all": "npm run qa && npm run qa:pwa && npm run qa:a11y && npm run cap:check",
     "qa:pwa": "node scripts/pwa-check.mjs",
     "test": "vitest",
     "test:run": "vitest run",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
+    "@capacitor/android": "8.5.1",
+    "@capacitor/core": "8.5.1",
+    "@capacitor/haptics": "8.0.2",
     "react": "19.2.8",
     "react-dom": "19.2.8"
   },
   "devDependencies": {
+    "@capacitor/cli": "8.5.1",
     "@eslint/js": "10.0.1",
     "@types/node": "22.20.1",
     "@types/react": "19.2.18",

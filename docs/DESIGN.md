@@ -1,8 +1,11 @@
 # Mahjong production design
 
 > Status: **authoritative for the production app** as of Issue #21 (V1.7.1),
-> extended by Issue #9 (V1.8) for the contextual learning layer in §21, and by
-> Issue #10 (V1.9) for persistence and stats in §22.
+> extended by Issue #9 (V1.8) for the contextual learning layer in §21, by
+> Issue #10 (V1.9) for persistence and stats in §22, and by Issue #11
+> (V1.10) for Capacitor Android packaging in §23. The real-device gate this
+> document has always deferred to #11 remains open — see the foot of this
+> document.
 > Where this document and `app/` disagree, one of them is a bug. Where this
 > document and [`HKOS_RULES.md`](HKOS_RULES.md) disagree about game behaviour,
 > the rules contract wins and this document is wrong.
@@ -34,6 +37,7 @@ most of them are asserted by a test named in the section that states them.
 - [20. Specialist audits: what was taken and what was refused](#20-specialist-audits-what-was-taken-and-what-was-refused)
 - [21. Contextual learning layer (#9)](#21-contextual-learning-layer-9)
 - [22. Persistence and stats (#10)](#22-persistence-and-stats-10)
+- [23. Capacitor Android packaging (#11)](#23-capacitor-android-packaging-11)
 
 ---
 
@@ -425,11 +429,11 @@ pretend desktop keyboard use is primary.
   what was built. Cache-first for everything; navigations fall back to the
   cached shell. There is no runtime network dependency, so being offline is
   the normal mode rather than a degraded one.
-- **Capacitor readiness** (#11, not built here): orientation is already a
-  screen-level property; safe-area handling is already inset-driven rather
-  than assumed; there is no absolute pixel positioning to re-tune; and the
-  `theme-color` and background colour match the felt, so the system bars and
-  the splash do not flash a different world.
+- **Capacitor packaging** is built; see §23. Orientation is a screen-level
+  property; safe-area handling is inset-driven rather than assumed; there is
+  no absolute pixel positioning to re-tune; and the `theme-color` and
+  background colour match the felt, carried into the native splash too — see
+  §23 for what changed to make that true rather than assumed.
 
 ## 20. Specialist audits: what was taken and what was refused
 
@@ -616,6 +620,89 @@ overlay chrome.
 - Corrupt or incompatible local data fails safely — a fresh match, never a
   crash or a corrupted engine state.
 - Stats are a pure read over completed records and cannot affect gameplay.
+
+---
+
+## 23. Capacitor Android packaging (#11)
+
+One React + Vite app, two builds. `npm run build` (base `/mahjong/`) still
+ships the GitHub Pages PWA exactly as before; `npm run build:capacitor`
+(base `./`, output to `dist-capacitor/`) is new — a root-relative
+`/mahjong/…` asset URL 404s inside Capacitor's local webview, which serves
+the app from its own root, not a Pages subpath. `npm run cap:sync` builds
+that and copies it into the native project with `cap sync`; `npm run
+cap:android:debug` does the same and then runs the Gradle debug build.
+Nothing in `src/` branches on which build produced it — the difference is
+entirely in `vite.config.ts`'s base-path selection.
+
+**Identity.** `capacitor.config.ts`: appId `com.benwassa.mahjong`, appName
+"Mahjong", matching the PWA manifest's `short_name`.
+
+**Orientation is deliberately not locked** at the Android Activity level.
+The table is landscape-only, but the settings/learning/rules/stats menu is
+the portrait surface (§1, §21, §22), reached by physically rotating the
+phone — exactly as it already works in the browser. Locking `MainActivity`
+to landscape would make that whole menu unreachable on Android, so it is
+left at Android's default ("unspecified"), and `useIsLandscape()`
+(`app/src/App.tsx`) stays the only place orientation is judged, for both
+surfaces alike.
+
+**Template gaps the generated project shipped with, fixed:**
+
+- `styles.xml` referenced `colorPrimary`, `colorPrimaryDark` and
+  `colorAccent` with no `colors.xml` defining them — a build-time failure
+  waiting to happen. Added, matching the felt and brass palette (§7) rather
+  than Capacitor's stock blue.
+- The default splash art is a generic blue Capacitor logo on white — the
+  "does not flash a different world" claim in §19 was not yet true for the
+  native shell. `app/scripts/make-splash.mjs` renders the splash at every
+  density Android's template generated (same file, same dimensions, real
+  content) from the same `icon.svg` source the PWA icons already come from:
+  the felt background colour and one tile face, centred.
+
+**Haptics** (`app/src/game/haptics.ts`) are the whole of what #11 scoped for
+native feedback: a light impact on committing a discard, a medium impact on
+taking a claim (not a pass), and a success/warning notification on the
+viewing seat's own hand result. This is deliberately Capacitor's own fixed
+`ImpactStyle`/`NotificationType` vocabulary and nothing more — #11 carried no
+decided haptic vocabulary beyond "native haptics", so nothing here invents
+one. `@capacitor/haptics` ships a web implementation that falls back to the
+Vibration API or silently no-ops, so the same call sites run unbranched on
+the PWA; every call is fire-and-forget with its rejection swallowed
+(`app/src/game/haptics.test.ts`), so a platform with no vibration hardware
+can never turn a haptic into a gameplay failure.
+
+**Sound is not implemented.** #11 inherited this from #8 as an open item:
+no tile-clack or table sound assets exist anywhere in this repository, and
+sourcing or generating them is outside what this work can responsibly do
+unattended — licensing an asset, or synthesising one that reads as a tile
+rather than noise, is a judgement call for whoever ships it. The hook point
+is obvious (the same interaction and result call sites haptics uses) once
+assets exist; nothing about their absence blocks anything above.
+
+**Automated verification**, all offline and dependency-light:
+
+- `npm run cap:check` — builds the Capacitor bundle, syncs it, and statically
+  checks the result (`app/scripts/capacitor-check.mjs`): the synced assets
+  match the current build, the manifest declares the app's own identity and
+  no permission beyond the `INTERNET` a local WebView needs to load its own
+  bundled files, and the template's `colors.xml` gap stays fixed. No JDK, no
+  Android SDK, no network to Google's Maven repository required — this runs
+  anywhere Node does, including a sandboxed session with no egress to
+  `dl.google.com`.
+- CI's `android` job (`.github/workflows/ci.yml`) does the real compile —
+  `./gradlew assembleDebug` on a GitHub-hosted runner, which carries a
+  preinstalled Android SDK and ordinary internet access — and uploads the
+  resulting debug APK as a workflow artifact on every push and PR.
+- `npm run qa:all` (visual QA, PWA installability/offline, accessibility)
+  still governs the shared web layer both surfaces run; §22 covers what it
+  proved after #10.
+
+**What none of this proves.** A green `cap:check`, a successful CI
+`assembleDebug`, or an installed emulator session is evidence the app is
+correctly packaged and wired — not evidence of how it feels or reads on a
+physical phone. The real-device gate below is unchanged by any of the
+above and remains the actual acceptance bar for #11.
 
 ---
 

@@ -27,5 +27,11 @@
       "@engine/*": ["../src/*"]
     }
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx", "vite.config.ts", "../src/**/*.ts"]
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "vite.config.ts",
+    "capacitor.config.ts",
+    "../src/**/*.ts"
+  ]
 }

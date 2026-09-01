@@ -61,6 +61,55 @@ jobs:
         run: npm run check
         working-directory: app
 
+      - name: Verify the Capacitor Android packaging (#11)
+        # Static consistency only — no SDK, no Gradle, no network to Google's
+        # Maven repo required. The android job below does the real compile.
+        run: npm run cap:check
+        working-directory: app
+
+  android:
+    name: Capacitor Android debug build (#11)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Install app dependencies
+        run: npm ci
+        working-directory: app
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up the Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Build and sync the Capacitor web bundle
+        run: npm run cap:sync
+        working-directory: app
+
+      - name: Assemble the debug APK
+        run: ./gradlew assembleDebug --no-daemon
+        working-directory: app/android
+
+      - name: Upload the debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: mahjong-debug-apk
+          path: app/android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+
   prototype:
     name: Interaction prototype (#7)
     runs-on: ubuntu-latest
