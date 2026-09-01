@@ -20,7 +20,7 @@ function tile(kind: Tile["kind"], n: number): Tile {
 function player(seat: Seat, concealed: readonly Tile[] | null): PublicPlayerState {
   return {
     seat,
-    seatWind: (["east", "south", "west", "north"] as const)[seat] ?? "east",
+    seatWind: (["east", "south", "west", "north"] as const)[seat],
     concealedCount: concealed?.length ?? 0,
     concealed,
     melds: [],
@@ -160,7 +160,15 @@ describe("isBelowMinimumFaanWin", () => {
       isBelowMinimumFaanWin({
         ...snapshot,
         structurallyComplete: true,
-        view: { ...snapshot.view, phase: { kind: "awaiting-claims", discarder: 1, pendingTile: HAND[0]!, youMayRespond: true } },
+        view: {
+          ...snapshot.view,
+          phase: {
+            kind: "awaiting-claims",
+            discarder: 1,
+            pendingTile: tile("dots-1", 99),
+            youMayRespond: true,
+          },
+        },
       }),
     ).toBe(false);
   });

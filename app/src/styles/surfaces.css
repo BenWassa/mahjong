@@ -3,6 +3,9 @@
 .overlay {
   position: fixed;
   inset: 0;
+  /* Above the Explain banner (learning.css, z-index: 5): the result sheet is
+   * the one surface allowed to interrupt, and must never sit under it. */
+  z-index: 10;
   display: grid;
   place-items: center;
   padding: max(var(--space-5), var(--safe-top)) max(var(--space-6), var(--safe-right))

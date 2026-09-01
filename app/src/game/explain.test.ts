@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { DEFAULT_RULES_PROFILE } from "@engine";
-import type { GameAction, PublicGameState, PublicPlayerState, Seat } from "@engine";
+import type { GameAction, PublicGameState, PublicPlayerState, Seat, TileId } from "@engine";
 
 import { CONCEPTS, detectConcepts, type ConceptId } from "./explain";
 import type { SessionSnapshot } from "./session";
@@ -16,12 +16,12 @@ import type { SessionSnapshot } from "./session";
 function player(seat: Seat, bonuses = 0): PublicPlayerState {
   return {
     seat,
-    seatWind: (["east", "south", "west", "north"] as const)[seat] ?? "east",
+    seatWind: (["east", "south", "west", "north"] as const)[seat],
     concealedCount: 13,
     concealed: seat === 0 ? [] : null,
     melds: [],
     bonuses: Array.from({ length: bonuses }, (_unused, index) => ({
-      id: `flower-1-${String(index)}` as const,
+      id: `flower-1-${String(index)}` as TileId,
       kind: "flower-1" as const,
     })),
     score: 0,
@@ -89,7 +89,7 @@ describe("detectConcepts", () => {
 
   it("detects a claim decision whenever the band has any legal claim", () => {
     const snapshot = makeSnapshot({
-      legalActions: [{ type: "claim-pung", seat: 0, tileIds: ["dots-1-0", "dots-1-1"] } as GameAction],
+      legalActions: [{ type: "claim-pung", seat: 0, tileIds: ["dots-1-0", "dots-1-1"] }],
     });
     expect(detectConcepts(null, snapshot, false)).toContain("claim-decisions");
   });
@@ -126,7 +126,7 @@ describe("detectConcepts", () => {
     const current = makeSnapshot({
       handIndex: 1,
       bonuses: [1, 0, 0, 0],
-      legalActions: [{ type: "claim-pung", seat: 0, tileIds: ["dots-1-0", "dots-1-1"] } as GameAction],
+      legalActions: [{ type: "claim-pung", seat: 0, tileIds: ["dots-1-0", "dots-1-1"] }],
     });
     const found = detectConcepts(previous, current, true);
     expect(found).toEqual(

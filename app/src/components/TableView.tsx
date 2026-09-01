@@ -125,6 +125,13 @@ export function TableView({
   useEffect(() => {
     const previous = previousSnapshotRef.current;
     previousSnapshotRef.current = snapshot;
+    // A hand that just ended has nothing routine left to annotate with a
+    // banner: the result sheet's own notes take over from here, and the
+    // sheet is the one surface allowed to interrupt (DESIGN.md §16).
+    if (endedPhase !== null) {
+      setActiveConcept(null);
+      return;
+    }
     if (!explainOn) return;
     const triggered = detectConcepts(previous, snapshot, belowMinimumFaanWin);
     const next = triggered.find((id) => !learning.has(id));
@@ -132,7 +139,7 @@ export function TableView({
       learning.markSeen(next);
       setActiveConcept(next);
     }
-  }, [snapshot, explainOn, belowMinimumFaanWin, learning]);
+  }, [snapshot, explainOn, belowMinimumFaanWin, learning, endedPhase]);
 
   // The three explain notes anchored to the result sheet fire at most once
   // each. Latched to the hand they first appear on, computed during render
