@@ -6,7 +6,7 @@ A clean, modern Hong Kong Old Style Mahjong game for mobile. Offline-first, rule
 
 **V1 build in progress.**
 
-Rules, engine, scoring, the correctness gate and deterministic heuristic bots are complete. The mobile interaction prototype is built and waiting on a real-phone verdict; production presentation and the PWA start only once that decision is accepted.
+Rules, engine, scoring, the correctness gate and deterministic heuristic bots are complete. The mobile interaction prototype passed its real-Android landscape gate; production presentation and the offline PWA are next.
 
 ## V1
 
