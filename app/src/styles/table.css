@@ -26,7 +26,11 @@
 
 .status {
   display: flex;
-  align-items: baseline;
+  /* Centred, not baseline: the strip mixes a 10px label with a 13px value, and
+   * baseline alignment in a fixed 26px box pushed the text against the top
+   * edge of the screen. The baseline relationship that matters is between the
+   * label and its value, which is set on the pair below. */
+  align-items: center;
   gap: var(--space-6);
   height: 26px;
   padding: 0 var(--space-5);

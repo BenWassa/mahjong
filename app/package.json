@@ -5,17 +5,21 @@
   "type": "module",
   "description": "Production Hong Kong Old Style Mahjong table and installable offline PWA.",
   "scripts": {
-    "dev": "vite",
-    "phone": "vite --host 0.0.0.0",
     "build": "vite build",
-    "preview": "vite preview",
+    "check": "npm run lint && npm run typecheck && npm run test:run && npm run build",
+    "dev": "vite",
+    "icons": "node scripts/make-icons.mjs",
+    "lint": "eslint .",
+    "phone": "vite --host 0.0.0.0",
     "phone:preview": "vite preview --host 0.0.0.0",
-    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "preview": "vite preview",
+    "qa": "node scripts/visual-qa.mjs",
+    "qa:a11y": "node scripts/a11y-check.mjs",
+    "qa:all": "npm run qa && npm run qa:pwa && npm run qa:a11y",
+    "qa:pwa": "node scripts/pwa-check.mjs",
     "test": "vitest",
     "test:run": "vitest run",
-    "lint": "eslint .",
-    "check": "npm run lint && npm run typecheck && npm run test:run && npm run build",
-    "qa": "node scripts/visual-qa.mjs"
+    "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
     "react": "19.2.8",
