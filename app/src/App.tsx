@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useState, type JSX } from "react";
 
 import { RulesReference } from "./components/RulesReference";
+import { StatsView } from "./components/StatsView";
 import { TableView } from "./components/TableView";
 import { useLearningProgress } from "./game/explain";
+import { DEFAULT_SETTINGS, loadSettings, saveSettings } from "./game/persistence";
+import { newMatchSeed } from "./game/seed";
 import { useGameSession } from "./game/useGameSession";
 import type { CornerLabelMode } from "./tiles/Tile";
 
@@ -38,7 +41,7 @@ const LABEL_NAME: Record<CornerLabelMode, string> = {
 
 function initialSeed(): string {
   const params = new URLSearchParams(window.location.search);
-  return params.get("seed") ?? `hand-${String(Date.now())}`;
+  return params.get("seed") ?? newMatchSeed();
 }
 
 /**
@@ -46,16 +49,26 @@ function initialSeed(): string {
  * learning period and each toggled from the portrait menu, which is already
  * this app's settings surface (§ below). None of them is ever required to
  * make a legal move.
+ *
+ * Their state, and the corner-label mode, persist locally (#10) so a toggle
+ * survives a reload; they are read once from storage at startup and written
+ * back whenever any of them changes.
  */
 export function App(): JSX.Element {
   const landscape = useIsLandscape();
   const [seed] = useState(initialSeed);
-  const [cornerLabel, setCornerLabel] = useState<CornerLabelMode>("rank");
-  const [assistOn, setAssistOn] = useState(true);
-  const [explainOn, setExplainOn] = useState(true);
+  const [settings] = useState(loadSettings);
+  const [cornerLabel, setCornerLabel] = useState<CornerLabelMode>(settings.cornerLabel);
+  const [assistOn, setAssistOn] = useState(settings.assistOn);
+  const [explainOn, setExplainOn] = useState(settings.explainOn);
   const [showRules, setShowRules] = useState(false);
+  const [showStats, setShowStats] = useState(false);
   const session = useGameSession(seed);
   const learning = useLearningProgress();
+
+  useEffect(() => {
+    saveSettings({ ...DEFAULT_SETTINGS, cornerLabel, assistOn, explainOn });
+  }, [cornerLabel, assistOn, explainOn]);
 
   const cycleLabel = useCallback(() => {
     setCornerLabel((current) => {
@@ -66,6 +79,10 @@ export function App(): JSX.Element {
 
   if (showRules) {
     return <RulesReference onClose={() => { setShowRules(false); }} />;
+  }
+
+  if (showStats) {
+    return <StatsView onClose={() => { setShowStats(false); }} />;
   }
 
   if (!landscape) {
@@ -130,6 +147,18 @@ export function App(): JSX.Element {
               onClick={() => { setShowRules(true); }}
             >
               Reference
+            </button>
+          </div>
+
+          <div className="portrait__setting">
+            <span id="stats-link">Stats</span>
+            <button
+              type="button"
+              className="portrait__toggle"
+              aria-describedby="stats-link"
+              onClick={() => { setShowStats(true); }}
+            >
+              View
             </button>
           </div>
         </div>

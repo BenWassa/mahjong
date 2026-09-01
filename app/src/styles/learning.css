@@ -236,3 +236,36 @@
   border-top: 1px solid var(--hairline);
   margin: var(--space-7) 0;
 }
+
+/* ------------------------------------------------------------- stats --- */
+
+/* Reuses the rules-reference shell (.rules, .rules__head, .rules__body):
+ * same chrome, a different read-only content area. */
+.stats__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: var(--space-5);
+  margin: 0 0 var(--space-7);
+}
+
+.stats__tile {
+  padding: var(--space-5);
+  border-radius: var(--radius-surface);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-rest);
+}
+
+.stats__label {
+  margin: 0 0 var(--space-3);
+  font-size: var(--text-xs);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+.stats__value {
+  margin: 0;
+  font-size: var(--text-lg);
+  font-weight: var(--weight-bold);
+  color: var(--text-primary);
+}

@@ -2,8 +2,10 @@ import {
   DEFAULT_RULES_PROFILE,
   createHeuristicBot,
   newGame,
+  replayGame,
   type BotController,
   type GameAction,
+  type GameRecord,
   type MahjongGame,
   type OrdinaryTileKind,
   type PublicGameState,
@@ -56,6 +58,15 @@ export interface SessionOptions {
   readonly rules?: RulesProfile;
   /** Injected in tests to run the turn loop without real timers. */
   readonly schedule?: (run: () => void, ms: number) => () => void;
+  /**
+   * A previously persisted, still-in-progress record to resume from (#10).
+   * Replayed through the engine's own seed-plus-actions reconstruction, so a
+   * resumed table is byte-identical to the one that was interrupted. A record
+   * that is already `completed`, or that fails to replay (corrupt or from an
+   * incompatible engine version), is ignored in favour of a fresh game —
+   * resuming must never be able to corrupt engine state.
+   */
+  readonly resumeFrom?: GameRecord;
 }
 
 type Listener = (snapshot: SessionSnapshot) => void;
@@ -69,6 +80,15 @@ function playerActions(game: MahjongGame, seat: Seat): readonly GameAction[] {
   return game.legalActions(seat).filter((action) => action.type !== "continue");
 }
 
+function resumeGame(record: GameRecord | undefined): MahjongGame | null {
+  if (record === undefined || record.completed) return null;
+  try {
+    return replayGame(record);
+  } catch {
+    return null;
+  }
+}
+
 export class GameSession {
   #game: MahjongGame;
   #lastAction: GameAction | null = null;
@@ -79,15 +99,24 @@ export class GameSession {
 
   public constructor(options: SessionOptions) {
     const rules = options.rules ?? DEFAULT_RULES_PROFILE;
-    this.#game = newGame(rules, options.seed);
+    this.#game = resumeGame(options.resumeFrom) ?? newGame(rules, options.seed);
+    // Derived from the live game rather than options.seed, so a resumed table
+    // seeds its bots from the record it actually resumed rather than from
+    // whatever seed the caller happened to pass alongside it.
+    const activeSeed = this.#game.gameRecord().seed;
     this.#schedule = options.schedule ?? defaultSchedule;
     this.#bots = new Map(
       BOT_SEATS.map((seat) => [
         seat,
-        createHeuristicBot({ seat, seed: `${options.seed}:seat:${String(seat)}` }),
+        createHeuristicBot({ seat, seed: `${activeSeed}:seat:${String(seat)}` }),
       ]),
     );
     this.#pump();
+  }
+
+  /** Trusted persistence record for the live table (#10). */
+  public gameRecord(): GameRecord {
+    return this.#game.gameRecord();
   }
 
   public snapshot(): SessionSnapshot {
