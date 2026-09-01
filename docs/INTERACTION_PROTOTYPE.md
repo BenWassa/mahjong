@@ -1,7 +1,7 @@
 # V1.6 — Mobile interaction prototype (#7)
 
-Status: **built, awaiting the device gate.** The verdict section at the bottom is
-empty on purpose and may only be filled in from a real Android phone.
+Status: **GREEN — accepted on a real Android phone.** The landscape interaction
+model is the production input for #8; the prototype itself remains disposable.
 
 The prototype lives in [`prototype/`](../prototype). It is throwaway. Production
 UI and the installable PWA are #8, and #8 is not started until the interaction
@@ -136,25 +136,32 @@ countable in a phone's actual pixel density and glare. Those need the phone.
 
 ## 5. Device verdict
 
-**Not yet recorded. Do not fill this in from an emulator.**
+**GREEN — recorded from a real Android phone on 2026-09-01.** The prototype was
+tested in landscape on the author's phone. Landscape width and readability were
+comfortable, with some horizontal room to spare. The interaction model is accepted.
 
 | Question | Verdict | Notes |
 |---|---|---|
-| Landscape clearly right? | | |
-| 14 tiles readable without zoom? | | |
-| Hit targets comfortable? | | |
-| Select-then-discard prevents accidental discards? | | |
-| Claims readable without shrinking the hand? | | |
-| Corner labels useful without damaging the face? | | |
+| Landscape clearly right? | GREEN | Accepted as the gameplay orientation on the real phone. |
+| 14 tiles readable without zoom? | GREEN | Width and readability were comfortable, with spare horizontal room. |
+| Hit targets comfortable? | GREEN | The real-phone interaction gate passed; no hit-target blocker was reported. |
+| Select-then-discard prevents accidental discards? | GREEN | Tap once to select and tap the same tile again to discard is accepted. |
+| Claims readable without shrinking the hand? | GREEN | Contextual claim controls are accepted as part of the landscape interaction model. |
+| Corner labels useful without damaging the face? | No blocking change | Traditional artwork remains canonical; labels stay a separate optional layer for #8. |
 
 Session report:
 
 ```
-(paste from ⚙ → report)
+No numeric prototype report was supplied. The qualitative real-device verdict above
+is the acceptance record; emulator measurements in §4 are not substituted for it.
 ```
 
 Decision:
 
 ```
-(tap-tap confirmed / changed to …, tile size …, control placement …, labels …)
+GREEN. Carry tap-tap selection/discard and contextual claim controls into #8.
+Production must fit the actual viewport and safe-area insets responsively rather than
+assuming the prototype's test dimensions. Use wider-phone spare horizontal room when
+available without reducing tile readability or touch comfort on narrower viewports.
+Keep traditional tile faces canonical and corner labels as an independent layer.
 ```
