@@ -23,7 +23,8 @@ export type ConceptId =
   | "robbing-kong"
   | "win-sources"
   | "exhaustive-draw"
-  | "faan-breakdown";
+  | "faan-breakdown"
+  | "reduced-claims";
 
 export const CONCEPTS: Record<ConceptId, { readonly title: string; readonly body: string }> = {
   "claim-decisions": {
@@ -74,6 +75,13 @@ export const CONCEPTS: Record<ConceptId, { readonly title: string; readonly body
     title: "Reading the breakdown",
     body: "Each line is a separate scoring pattern. The total is their sum — this is what \"stacking\" means.",
   },
+  "reduced-claims": {
+    title: "Chow and Kong are hidden",
+    body:
+      "You are playing a simplified claim set: Win 糊, Pung 碰 and Pass 過. " +
+      "Chow and Kong are still legal moves — switch them on from the menu " +
+      "when you want them.",
+  },
 };
 
 function totalBonuses(view: PublicGameState): number {
@@ -85,10 +93,14 @@ export function detectConcepts(
   previous: SessionSnapshot | null,
   current: SessionSnapshot,
   belowMinimumFaanWin: boolean,
+  claimsReduced = false,
 ): readonly ConceptId[] {
   const found: ConceptId[] = [];
 
   if (claimActions(current.legalActions).length > 0) {
+    // The app is hiding moves the engine says are legal, so it has to say so
+    // before it explains the ones it left. Leads the list for that reason.
+    if (claimsReduced) found.push("reduced-claims");
     found.push("claim-decisions");
   }
   if (belowMinimumFaanWin) {

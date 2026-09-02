@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import type { GameAction, GameRecord, Seat } from "@engine";
+import { replayGame, type GameAction, type GameRecord, type Seat } from "@engine";
 
+import { reducePlayerActions } from "./interaction";
 import { GameSession, PLAYER_SEAT } from "./session";
 
 /**
@@ -229,5 +230,85 @@ describe("GameSession resume", () => {
     });
     expect(fresh.gameRecord().actions).toEqual([]);
     expect(fresh.snapshot().view.handIndex).toBe(0);
+  });
+});
+
+describe("the reduced claim band", () => {
+  /**
+   * A session whose interface hides Chow and the kongs, as Beginner mode's
+   * band does. Everything here goes through the same reducer the app passes.
+   */
+  function reducedSession(seed: string) {
+    const clock = manualClock();
+    const session = new GameSession({
+      seed,
+      schedule: clock.schedule,
+      reduceActions: (actions) => reducePlayerActions(actions, false),
+    });
+    return { session, clock };
+  }
+
+  it("never offers the player a hidden claim", () => {
+    const { session, clock } = reducedSession("reduced-offers");
+    for (let turn = 0; turn < 120; turn += 1) {
+      for (const action of session.snapshot().legalActions) {
+        expect(action.type).not.toBe("claim-chow");
+        expect(action.type).not.toBe("claim-kong");
+        expect(action.type).not.toBe("declare-concealed-kong");
+        expect(action.type).not.toBe("declare-added-kong");
+      }
+      const discard = session
+        .snapshot()
+        .legalActions.find((action) => action.type === "discard");
+      if (discard !== undefined) session.act(discard);
+      clock.flush(4);
+    }
+  });
+
+  /**
+   * The bug this whole mechanism exists to prevent.
+   *
+   * The engine holds a claim window open until every responder answers. If the
+   * interface hides the player's only real option and nothing answers on their
+   * behalf, the table stops forever. A reduced session must therefore always
+   * be able to keep running on its own clock.
+   */
+  it("never stalls: play always advances without the player acting", () => {
+    const { session, clock } = reducedSession("reduced-no-stall");
+    let advanced = 0;
+    for (let turn = 0; turn < 200; turn += 1) {
+      const before = session.snapshot();
+      const discard = before.legalActions.find((action) => action.type === "discard");
+      if (discard !== undefined) {
+        session.act(discard);
+        advanced += 1;
+        continue;
+      }
+      // The player has nothing to do. Something must still be scheduled, or
+      // the match is deadlocked.
+      if (before.view.phase.kind === "awaiting-claims") {
+        expect(clock.pending()).toBeGreaterThan(0);
+      }
+      if (clock.flush(1) === 0) break;
+      advanced += 1;
+    }
+    expect(advanced).toBeGreaterThan(20);
+  });
+
+  it("records the pass it makes on the player's behalf, so the match replays", () => {
+    // replayGame reconstructs a resumed match from the recorded action list,
+    // and persistence treats a replay failure as corruption. A pass that
+    // happened but was not written down would silently destroy saved games.
+    const { session, clock } = reducedSession("reduced-replay");
+    for (let turn = 0; turn < 80; turn += 1) {
+      const discard = session
+        .snapshot()
+        .legalActions.find((action) => action.type === "discard");
+      if (discard !== undefined) session.act(discard);
+      clock.flush(4);
+    }
+    const record = session.gameRecord();
+    expect(record.actions.length).toBeGreaterThan(0);
+    expect(() => replayGame(record)).not.toThrow();
   });
 });

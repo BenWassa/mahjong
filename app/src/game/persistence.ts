@@ -1,6 +1,7 @@
 import type { GameRecord, RulesProfile } from "@engine";
 
 import type { CornerLabelMode } from "../tiles/Tile";
+import { isTableMode, type TableMode } from "./modes";
 
 /**
  * Local-only persistence (#10). Everything here talks to `window.localStorage`
@@ -19,17 +20,36 @@ const COMPLETED_GAMES_KEY = `${KEY_PREFIX}completed-games`;
 const MAX_COMPLETED_GAMES = 500;
 
 export interface PersistedSettings {
-  readonly version: 1;
+  readonly version: 2;
   readonly cornerLabel: CornerLabelMode;
   readonly assistOn: boolean;
   readonly explainOn: boolean;
+  /**
+   * Which table the player is on, or null when the one-time first-launch
+   * question has never been answered.
+   *
+   * Deliberately one field rather than a mode plus a separate "has been
+   * asked" boolean: two fields can disagree with each other, and "asked but
+   * somehow unset" is not a state this app should be able to represent.
+   */
+  readonly mode: TableMode | null;
+  /**
+   * Whether the claim band offers Chow and Kong. Beginner starts with them
+   * hidden and the player switches them on when they want them, which is the
+   * only honest reading of "once they have some experience": the player is
+   * the only party who can tell, and a hidden hand-counter would change the
+   * table under someone who never asked it to.
+   */
+  readonly showAllClaims: boolean;
 }
 
 export const DEFAULT_SETTINGS: PersistedSettings = Object.freeze({
-  version: 1,
+  version: 2,
   cornerLabel: "rank",
   assistOn: true,
   explainOn: true,
+  mode: null,
+  showAllClaims: true,
 });
 
 /**
@@ -70,7 +90,18 @@ function isCornerLabelMode(value: unknown): value is CornerLabelMode {
   return value === "off" || value === "rank" || value === "rank-suit";
 }
 
-function isPersistedSettings(value: unknown): value is PersistedSettings {
+/**
+ * The v1 settings shape, kept only so a blob written by an earlier build can
+ * be recognised and carried forward rather than silently discarded.
+ */
+interface PersistedSettingsV1 {
+  readonly version: 1;
+  readonly cornerLabel: CornerLabelMode;
+  readonly assistOn: boolean;
+  readonly explainOn: boolean;
+}
+
+function isPersistedSettingsV1(value: unknown): value is PersistedSettingsV1 {
   if (!isRecord(value)) return false;
   return (
     value.version === 1 &&
@@ -80,12 +111,53 @@ function isPersistedSettings(value: unknown): value is PersistedSettings {
   );
 }
 
+function isPersistedSettings(value: unknown): value is PersistedSettings {
+  if (!isRecord(value)) return false;
+  return (
+    value.version === 2 &&
+    isCornerLabelMode(value.cornerLabel) &&
+    typeof value.assistOn === "boolean" &&
+    typeof value.explainOn === "boolean" &&
+    (value.mode === null || isTableMode(value.mode)) &&
+    typeof value.showAllClaims === "boolean"
+  );
+}
+
+/**
+ * Brings a stored blob of any known version up to the current shape, or
+ * returns null when it is not a settings blob at all.
+ *
+ * The migration is not optional. `isPersistedSettings` is a strict shape
+ * check, so without a v1 branch here every existing player's toggles would be
+ * silently discarded and replaced with defaults the moment this build shipped.
+ *
+ * A v1 blob means someone who has already played this app, so they are put on
+ * the standard table with the full claim set and are never shown the
+ * new-player question: their table must not change under them because a new
+ * version arrived.
+ */
+function migrateSettings(value: unknown): PersistedSettings | null {
+  if (isPersistedSettings(value)) return value;
+  if (isPersistedSettingsV1(value)) {
+    return {
+      version: 2,
+      cornerLabel: value.cornerLabel,
+      assistOn: value.assistOn,
+      explainOn: value.explainOn,
+      mode: "standard",
+      showAllClaims: true,
+    };
+  }
+  return null;
+}
+
 export function loadSettings(): PersistedSettings {
   const raw = readRaw(SETTINGS_KEY);
   if (raw === null) return DEFAULT_SETTINGS;
   try {
     const parsed: unknown = JSON.parse(raw);
-    if (isPersistedSettings(parsed)) return parsed;
+    const migrated = migrateSettings(parsed);
+    if (migrated !== null) return migrated;
   } catch {
     // Fall through to the safe default below.
   }

@@ -322,6 +322,60 @@ describe("opponents and status", () => {
     expect(markup).toMatch(/Your turn|to play|Claim open|Hand over/);
     expect(markup).toContain('role="status"');
   });
+
+  it("keeps naming a seat by position and wind once the visible word is gone", () => {
+    // The seat's position and wind moved out of the felt and into its
+    // accessible name alone. That name is now the only carrier, so it is
+    // asserted rather than assumed.
+    const markup = renderToStaticMarkup(
+      <SeatCard player={view.players[3]} position="left" active={false} />,
+    );
+    expect(markup).toContain("Left opponent");
+    expect(markup).toMatch(/East seat|South seat|West seat|North seat/);
+  });
+
+  it("withholds a score readout until there is a score to read", () => {
+    const seat = view.players[1];
+    expect(seat.score).toBe(0);
+    const fresh = renderToStaticMarkup(
+      <SeatCard player={seat} position="right" active={false} />,
+    );
+    expect(fresh).not.toContain("score");
+
+    const settled = renderToStaticMarkup(
+      <SeatCard player={{ ...seat, score: 24 }} position="right" active={false} />,
+    );
+    // And when there is one, it is still labelled — F-06 is not reverted.
+    expect(settled).toContain("score");
+    expect(settled).toContain("24");
+  });
+
+  it("withholds the player's own score until it is non-zero", () => {
+    expect(renderToStaticMarkup(<StatusStrip view={view} />)).not.toContain("Score");
+    const [p0, p1, p2, p3] = view.players;
+    const scored = {
+      ...view,
+      players: [{ ...p0, score: -8 }, p1, p2, p3] as typeof view.players,
+    };
+    expect(renderToStaticMarkup(<StatusStrip view={scored} />)).toContain("Score");
+  });
+
+  it("reports an opponent's bonus tiles as a count, never as their faces", () => {
+    const withBonuses = {
+      ...view.players[2],
+      bonuses: [
+        { id: "flower-1-0", kind: "flower-1" },
+        { id: "season-3-0", kind: "season-3" },
+      ],
+    } as typeof view.players[2];
+    const markup = renderToStaticMarkup(
+      <SeatCard player={withBonuses} position="across" active={false} />,
+    );
+    expect(markup).toContain("bonus");
+    expect(markup).toContain("2");
+    expect(markup).not.toContain("Plum");
+    expect(markup).not.toContain("Autumn");
+  });
 });
 
 describe("the discard well", () => {

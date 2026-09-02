@@ -1,3 +1,4 @@
+import { reducePlayerActions, type ReducedActions } from "./interaction";
 import {
   DEFAULT_RULES_PROFILE,
   createHeuristicBot,
@@ -36,6 +37,13 @@ const BOT_SEATS: readonly Seat[] = [1, 2, 3];
  */
 export const BOT_DISCARD_MS = 360;
 export const BOT_RESPONSE_MS = 170;
+/**
+ * Delay before the session passes on the player's behalf in a claim window
+ * whose every real option the interface has hidden (Beginner's reduced band).
+ * Paced like a bot response so the offered tile is visibly on the table for a
+ * beat, rather than the window blinking out of existence.
+ */
+export const AUTO_PASS_MS = BOT_RESPONSE_MS;
 
 export interface SessionSnapshot {
   readonly view: PublicGameState;
@@ -67,6 +75,20 @@ export interface SessionOptions {
    * resuming must never be able to corrupt engine state.
    */
   readonly resumeFrom?: GameRecord;
+  /**
+   * Presentation-layer reduction of the player's own options (#Beginner mode).
+   * It can only ever remove options; the engine remains the legality
+   * authority, and anything it removes is still a legal move.
+   *
+   * It lives here rather than in the view for two reasons. The turn loop has
+   * to answer a claim window whose every real option was hidden, and doing
+   * that from a React effect would fire twice under StrictMode — the second
+   * pass throwing IllegalActionError out of the tree. And every derived
+   * layer (discardable tiles, the assist suggestion, concept detection) reads
+   * `snapshot.legalActions`, so reducing once here keeps them all agreeing
+   * with what the band actually offers.
+   */
+  readonly reduceActions?: (actions: readonly GameAction[]) => ReducedActions;
 }
 
 type Listener = (snapshot: SessionSnapshot) => void;
@@ -96,6 +118,7 @@ export class GameSession {
   #listeners = new Set<Listener>();
   readonly #bots: ReadonlyMap<Seat, BotController>;
   readonly #schedule: (run: () => void, ms: number) => () => void;
+  readonly #reduceActions: (actions: readonly GameAction[]) => ReducedActions;
 
   public constructor(options: SessionOptions) {
     const rules = options.rules ?? DEFAULT_RULES_PROFILE;
@@ -105,6 +128,8 @@ export class GameSession {
     // whatever seed the caller happened to pass alongside it.
     const activeSeed = this.#game.gameRecord().seed;
     this.#schedule = options.schedule ?? defaultSchedule;
+    this.#reduceActions =
+      options.reduceActions ?? ((actions) => reducePlayerActions(actions, true));
     this.#bots = new Map(
       BOT_SEATS.map((seat) => [
         seat,
@@ -123,7 +148,7 @@ export class GameSession {
     const pending = this.#pendingBotSeat();
     return {
       view: this.#game.state(PLAYER_SEAT),
-      legalActions: playerActions(this.#game, PLAYER_SEAT),
+      legalActions: this.#reduceActions(playerActions(this.#game, PLAYER_SEAT)).shown,
       waitingOn: pending,
       lastAction: this.#lastAction,
       waitingTiles: this.#game.waitingTiles(PLAYER_SEAT),
@@ -186,6 +211,8 @@ export class GameSession {
    */
   #pump(): void {
     if (this.#cancel !== null) return;
+    if (this.#pumpAutoPass()) return;
+
     const seat = this.#pendingBotSeat();
     if (seat === null) return;
 
@@ -203,6 +230,32 @@ export class GameSession {
       this.#pump();
       this.#emit();
     }, delay);
+  }
+
+  /**
+   * Answers a claim window on the player's behalf when the interface has
+   * hidden every option it offered them except passing.
+   *
+   * The pass is applied like any other move and is recorded in the game
+   * record. It must not be elided: `replayGame` reconstructs a resumed match
+   * from the recorded action list, so a pass that happened but was not written
+   * down would make the record fail to replay — which the persistence layer
+   * treats as corruption and discards. Recording it also means a match played
+   * in Beginner resumes correctly even if the player has since switched to the
+   * standard table.
+   */
+  #pumpAutoPass(): boolean {
+    const { autoPass } = this.#reduceActions(playerActions(this.#game, PLAYER_SEAT));
+    if (autoPass === null) return false;
+
+    this.#cancel = this.#schedule(() => {
+      this.#cancel = null;
+      this.#game = this.#game.act(autoPass);
+      this.#lastAction = autoPass;
+      this.#pump();
+      this.#emit();
+    }, AUTO_PASS_MS);
+    return true;
   }
 
   #emit(): void {

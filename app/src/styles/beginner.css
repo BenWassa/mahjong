@@ -1,0 +1,58 @@
+/*
+ * Beginner mode's presentation deltas — every one of them, in one file.
+ *
+ * All of it hangs off `[data-beginner="true"]` on the table root and on the
+ * portrait menu. Keeping the mode's differences here rather than sprinkling
+ * the attribute through table.css means the whole of what Beginner changes
+ * visually can be read in one sitting, and it means the standard table's
+ * rules are never touched by a mode that is off.
+ *
+ * Everything below only removes or quiets. Nothing grows, so the fixed
+ * reserves the responsive geometry is built on (the 26px status strip, the
+ * 44px claim band, the seat label height) are unaffected and docs/DESIGN.md
+ * §4's verified device matrix still holds. If a rule here ever forces a change
+ * to geometry.ts, the rule is wrong.
+ */
+
+/* ---- Readouts a beginner is not yet using ------------------------------
+ * Each of these is reference rather than decision input. None of them is the
+ * only carrier of its information: the seat wind stays in every seat's
+ * accessible name, the wall count stays in the plaque's, and every score is
+ * itemised on the result sheet the moment it changes.
+ */
+.app[data-beginner="true"] .status__seat--score,
+.app[data-beginner="true"] .seat__score,
+.app[data-beginner="true"] .seat__bonuscount,
+.app[data-beginner="true"] .seat__wind,
+.app[data-beginner="true"] .plaque__wall,
+.app[data-beginner="true"] .plaque__walllabel {
+  display: none;
+}
+
+/* ---- The claim band reads in words -------------------------------------
+ * The han glyph is the product's character and it stays on the standard
+ * table (§8). A player who cannot yet read 碰 is served by the English word
+ * at a size worth reading instead of a 10px caption under a glyph.
+ *
+ * Both spans are already aria-hidden and the button takes its name from its
+ * aria-label, so nothing here can change an accessible name.
+ */
+.app[data-beginner="true"] .claim__han {
+  display: none;
+}
+
+.app[data-beginner="true"] .claim__en {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--text-primary);
+}
+
+/* ---- Guidance, louder --------------------------------------------------
+ * The banner is being read rather than glanced at, so it gets the body size
+ * and the contrast step. Its dwell time is raised alongside this in
+ * ExplainBanner's dwellMs; the two belong together.
+ */
+.app[data-beginner="true"] .explain__body {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}

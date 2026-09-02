@@ -13,7 +13,9 @@ const note = (message) => problems.push(message);
 
 const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: { width: 915, height: 412 } });
-await page.goto(`${BASE}?seed=a11y`, { waitUntil: "networkidle" });
+// `mode=` answers the first-launch question; without it this waits on a
+// selector that only exists behind the mode-choice screen.
+await page.goto(`${BASE}?seed=a11y&mode=standard`, { waitUntil: "networkidle" });
 await page.waitForSelector(".hand__slot");
 
 /** WCAG relative luminance and contrast, computed on painted colours. */
@@ -57,7 +59,7 @@ await page.addScriptTag({
 const contrast = await page.evaluate(() => {
   const out = [];
   const nodes = document.querySelectorAll(
-    ".status span, .seat span, .plaque span, .claim span, .offer__label, .well__empty",
+    ".status span, .seat span, .plaque span, .claim span, .offer__label",
   );
   for (const node of nodes) {
     const text = (node.textContent ?? "").trim();

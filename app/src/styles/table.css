@@ -80,10 +80,6 @@
   background: var(--text-tertiary);
 }
 
-.status__wall {
-  font-variant-numeric: tabular-nums;
-}
-
 /* ------------------------------------------------------------ table top --- */
 
 .table {
@@ -153,11 +149,15 @@
   white-space: nowrap;
 }
 
+/* Not brass. Brass marks live state and the one affirmative control; a seat's
+ * wind never changes value, and a third static use trains the eye to read the
+ * accent as decoration rather than as "this is live now", which costs the
+ * signals that are actually load-bearing (§7). */
 .seat__wind {
   font-family: var(--font-han);
   font-size: var(--text-md);
   font-weight: var(--weight-bold);
-  color: var(--brass);
+  color: var(--text-tertiary);
   line-height: 1;
 }
 
@@ -204,18 +204,23 @@
     5px 0 0 -0.5px var(--table-edge);
 }
 
-.seat__melds,
-.seat__bonuses {
+.seat__melds {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-3);
   min-width: 0;
 }
 
-/* Bonus tiles are settled score, not live state. They sit with the seat label
- * at reduced weight so they never compete with an exposed meld. */
-.seat__bonuses {
-  opacity: 0.72;
+/* Bonus tiles are settled score, not live state, and the player cannot act on
+ * one. A count carries the whole of that, at reduced weight so it never
+ * competes with an exposed meld. */
+.seat__bonuscount {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
 }
 
 .meld {
@@ -362,8 +367,7 @@
 
 .claim__en {
   font-size: var(--text-xs);
-  letter-spacing: var(--tracking-label);
-  text-transform: uppercase;
+  letter-spacing: normal;
   color: var(--text-secondary);
 }
 
