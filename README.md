@@ -6,7 +6,9 @@ A clean, modern Hong Kong Old Style Mahjong game for mobile. Offline-first, rule
 
 **V1 build in progress.**
 
-Rules, engine, scoring, the correctness gate and deterministic heuristic bots are complete. The mobile interaction prototype passed its real-Android landscape gate, and the production table, traditional SVG tile set and installable offline PWA are built. Learning aids, persistence and Android packaging are next.
+Rules, engine, scoring, the correctness gate and deterministic heuristic bots are complete. The mobile interaction prototype passed its real-Android landscape gate, and the production table, traditional SVG tile set and installable offline PWA are built. Learning aids, persistence and Android packaging are done.
+
+**Live PWA:** [benwassa.github.io/mahjong](https://benwassa.github.io/mahjong/) deploys `app/dist` — the real engine-backed game — from `main` on every relevant push (#26). The disposable interaction prototype in `prototype/` is historical only and is not deployed there.
 
 ## V1
 

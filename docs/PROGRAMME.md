@@ -17,6 +17,27 @@ V1 must ship as an **installable Progressive Web App as well as the Capacitor An
 
 This amendment supersedes any PRD wording that implies Android is the only V1 delivery surface; all other PRD scope remains unchanged.
 
+### Deployment truth (#26)
+
+The canonical GitHub Pages URL, `https://benwassa.github.io/mahjong/`, deploys
+`app/dist` — the real engine-backed production game — via
+[`.github/workflows/pages.yml`](../.github/workflows/pages.yml), on every push
+to `main` that touches `app/`, `src/`, or `docs/HKOS_RULES.md`. A live-origin
+check runs after every deployment so a future push cannot make Pages silently
+serve something else again.
+
+The disposable #7 interaction prototype (`prototype/`) is no longer deployed
+to Pages at all; `.github/workflows/prototype-pages.yml` has been removed.
+`prototype/` remains in the repository as historical/dev evidence only and is
+still built and checked by `ci.yml`, but it owns no public URL.
+
+Before #26, `prototype-pages.yml` was the only workflow deploying to Pages,
+so the public URL served the #7 prototype rather than the production app —
+`ci.yml` verified `app/` but never deployed it. #11's real-device checklist
+was therefore run against a locally built APK, not against the live Pages
+origin; #26 is what first makes the live Pages origin trustworthy for mobile
+PWA acceptance.
+
 ## Dependency-ordered work
 
 | Stage | Issue | Gate |
@@ -60,4 +81,5 @@ Until V1 is complete, do not add multiplayer, network services, accounts, teleme
 | #21 Production design, geometry and accessibility | Complete — pending the real-device gate recorded in [`DESIGN.md`](DESIGN.md) |
 | #9 Learning layer | Complete |
 | #10 Persistence | Complete |
-| #11 PWA + Android acceptance | Capacitor Android packaging built and CI-verified; real-device gate still open |
+| #11 PWA + Android acceptance | Complete — Capacitor Android packaging built and CI-verified; real-device gate closed |
+| #26 Production Pages cutover | Complete — `app/dist` deploys to Pages from `main`; prototype no longer owns Pages |

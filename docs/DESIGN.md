@@ -434,6 +434,13 @@ pretend desktop keyboard use is primary.
   no absolute pixel positioning to re-tune; and the `theme-color` and
   background colour match the felt, carried into the native splash too — see
   §23 for what changed to make that true rather than assumed.
+- **GitHub Pages deployment** (#26): `.github/workflows/pages.yml` builds
+  `app/dist` with `npm run check` and deploys it to
+  `https://benwassa.github.io/mahjong/` on every push to `main` touching
+  `app/`, `src/`, or `docs/HKOS_RULES.md`. A `verify` job then runs
+  `app/scripts/pwa-check.mjs` against that live origin, so a future change
+  cannot make Pages silently serve anything other than the production PWA.
+  The disposable #7 prototype does not deploy to Pages.
 
 ## 20. Specialist audits: what was taken and what was refused
 

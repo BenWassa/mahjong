@@ -7,6 +7,13 @@ The prototype lives in [`prototype/`](../prototype). It is throwaway. Production
 UI and the installable PWA are #8, and #8 is not started until the interaction
 decision here is accepted.
 
+**Not deployed.** The prototype no longer has (and after #26, never again
+should have) a public Pages URL — `https://benwassa.github.io/mahjong/` is
+the production `app/` build, deployed by
+[`.github/workflows/pages.yml`](../.github/workflows/pages.yml). Run the
+prototype locally with `npm run phone` as described below if you need to
+revisit it.
+
 ---
 
 ## 1. Run it on the phone

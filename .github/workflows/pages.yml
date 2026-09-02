@@ -1,0 +1,120 @@
+name: Deploy production app to Pages
+
+on:
+  push:
+    branches:
+      - "main"
+    paths:
+      - "app/**"
+      - "src/**"
+      - "docs/HKOS_RULES.md"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build production app
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Install app dependencies
+        run: npm ci
+        working-directory: app
+
+      # Builds app/dist with the default `vite build` mode, which keeps the
+      # `/mahjong/` base path GitHub Pages project sites require (#26). This
+      # is deliberately the production PWA, not the disposable #7 prototype.
+      - name: Check and build the production app
+        run: npm run check
+        working-directory: app
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v6
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: app/dist
+
+  deploy:
+    name: Deploy production app
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    outputs:
+      page_url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5
+
+  verify:
+    name: Verify live Pages origin (#26)
+    needs: deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Install app dependencies
+        run: npm ci
+        working-directory: app
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+        working-directory: app
+
+      # The live origin can lag briefly behind a fresh deployment while the
+      # Pages CDN catches up; poll before running the real check rather than
+      # failing on a stale or not-yet-propagated response.
+      - name: Wait for the live origin to serve the new deployment
+        run: |
+          for attempt in $(seq 1 12); do
+            if curl -fsS "${{ needs.deploy.outputs.page_url }}" -o /dev/null; then
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "Live origin never became reachable" >&2
+          exit 1
+
+      # This is the regression guard #26 exists to add: it runs the same
+      # installability/offline check used locally, but against the real
+      # public GitHub Pages origin, so a future push cannot silently make
+      # Pages serve the prototype (or anything else) again without CI
+      # catching it.
+      - name: Verify the live Pages origin serves the production PWA
+        run: node scripts/pwa-check.mjs
+        working-directory: app
+        env:
+          QA_BASE: ${{ needs.deploy.outputs.page_url }}
