@@ -33,10 +33,14 @@ export function StatusStrip({ view }: { readonly view: PublicGameState }): JSX.E
         {windName(self.seatWind)}
         {view.dealer === view.viewer ? ", dealer" : ""}
       </span>
-      <span className="status__seat">
-        <span className="status__seatlabel">Score</span>
-        <span className="tabular">{self.score}</span>
-      </span>
+      {/* Withheld until it exists. A strip that reads "SCORE 0" before a
+          single settlement is a container around nothing (§2.2). */}
+      {self.score !== 0 && (
+        <span className="status__seat status__seat--score">
+          <span className="status__seatlabel">Score</span>
+          <span className="tabular">{self.score}</span>
+        </span>
+      )}
       <span className="status__turn" role="status">
         <span
           className="status__turnmark"

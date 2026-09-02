@@ -41,6 +41,15 @@ const VIEWPORTS = [
 
 const SEEDS = ["qa-1", "qa-2", "qa-3", "qa-4", "qa-5", "qa-6", "qa-7", "qa-8"];
 
+/**
+ * The mode a walk plays under, appended to the URL.
+ *
+ * `?mode=` also answers the one-time first-launch question, which is what
+ * lets a fresh browser context reach the table at all — without it every walk
+ * below would sit on the mode-choice screen until `.app` timed out.
+ */
+let activeMode = "standard";
+
 const findings = [];
 const captured = new Set();
 
@@ -191,7 +200,7 @@ async function capture(page, viewport, label, force = false) {
 
 /** Walks one seeded game, capturing each state the first time it appears. */
 async function walk(page, viewport, seed, steps) {
-  await page.goto(`${BASE}?seed=${seed}`, { waitUntil: "domcontentloaded" });
+  await page.goto(`${BASE}?seed=${seed}&mode=${activeMode}`, { waitUntil: "domcontentloaded" });
   await applyInsets(page, viewport.insets);
   await page.waitForSelector(".app", { timeout: 10000 });
   await page.waitForTimeout(250);
@@ -258,7 +267,7 @@ async function walk(page, viewport, seed, steps) {
  * same surface whichever hand produced it.
  */
 async function walkToResult(page, viewport, seed) {
-  await page.goto(`${BASE}?seed=${seed}`, { waitUntil: "domcontentloaded" });
+  await page.goto(`${BASE}?seed=${seed}&mode=${activeMode}`, { waitUntil: "domcontentloaded" });
   await applyInsets(page, viewport.insets);
   await page.waitForSelector(".app", { timeout: 10000 });
 
@@ -325,7 +334,7 @@ for (const viewport of matrix) {
   // The portrait surface and the reduced-motion pass, on one viewport each.
   if (viewport.id === "typical-915") {
     await page.setViewportSize({ width: 412, height: 915 });
-    await page.goto(`${BASE}?seed=qa-1`, { waitUntil: "domcontentloaded" });
+    await page.goto(`${BASE}?seed=qa-1&mode=${activeMode}`, { waitUntil: "domcontentloaded" });
     await page.waitForTimeout(400);
     await capture(page, viewport, "portrait-menu");
     await page.setViewportSize({ width: viewport.width, height: viewport.height });
@@ -335,6 +344,55 @@ for (const viewport of matrix) {
     await walkToResult(page, viewport, "qa-result");
   }
 
+  await page.close();
+}
+
+/*
+ * Beginner mode, at the same thresholds.
+ *
+ * A mode that only removes things cannot introduce an overflow or an
+ * undersized target, so this is a guard rather than a new baseline: it runs
+ * the identical geometry assertions, and any finding it raises is a real
+ * regression in the mode's stylesheet.
+ */
+{
+  activeMode = "beginner";
+  for (const viewport of matrix.filter((v) => v.id === "typical-915" || v.id === "small-568")) {
+    const page = await browser.newPage({
+      viewport: { width: viewport.width, height: viewport.height },
+      deviceScaleFactor: 2,
+      reducedMotion: "no-preference",
+    });
+    page.on("pageerror", (error) => {
+      finding("high", "runtime", `Uncaught error: ${error.message}`, `${viewport.id}:beginner`);
+    });
+    for (const seed of SEEDS.slice(0, quick ? 2 : 4)) {
+      await walk(page, { ...viewport, id: `${viewport.id}-beginner` }, seed, quick ? 20 : 30);
+    }
+    await page.close();
+  }
+  activeMode = "standard";
+}
+
+/*
+ * The first-launch screen, in both orientations.
+ *
+ * It renders ahead of the orientation split, so it has to work in whichever
+ * one the phone is in on a first launch. The 44px target assertion is the one
+ * that matters here.
+ */
+{
+  const page = await browser.newPage({ viewport: { width: 915, height: 412 }, deviceScaleFactor: 2 });
+  for (const [id, width, height] of [
+    ["choice-landscape", 915, 412],
+    ["choice-portrait", 412, 915],
+  ]) {
+    await page.setViewportSize({ width, height });
+    await page.goto(`${BASE}?seed=qa-1`, { waitUntil: "domcontentloaded" });
+    await page.waitForSelector(".choice", { timeout: 10000 });
+    await page.waitForTimeout(250);
+    await capture(page, { id, width, height, insets: null }, "mode-choice");
+  }
   await page.close();
 }
 

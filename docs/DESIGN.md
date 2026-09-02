@@ -3,7 +3,8 @@
 > Status: **authoritative for the production app** as of Issue #21 (V1.7.1),
 > extended by Issue #9 (V1.8) for the contextual learning layer in §21, by
 > Issue #10 (V1.9) for persistence and stats in §22, and by Issue #11
-> (V1.10) for Capacitor Android packaging in §23. The real-device gate this
+> (V1.10) for Capacitor Android packaging in §23, and by the Beginner mode and
+> table de-clutter in §24. The real-device gate this
 > document has always deferred to #11 remains open — see the foot of this
 > document.
 > Where this document and `app/` disagree, one of them is a bug. Where this
@@ -38,6 +39,7 @@ most of them are asserted by a test named in the section that states them.
 - [21. Contextual learning layer (#9)](#21-contextual-learning-layer-9)
 - [22. Persistence and stats (#10)](#22-persistence-and-stats-10)
 - [23. Capacitor Android packaging (#11)](#23-capacitor-android-packaging-11)
+- [24. Beginner mode and the table de-clutter](#24-beginner-mode-and-the-table-de-clutter)
 
 ---
 
@@ -78,7 +80,7 @@ Landscape, four rows, top to bottom:
 
 | Row | Height | Contents |
 |---|---|---|
-| Status strip | 26px fixed | Own seat wind, own score, whose turn it is |
+| Status strip | 26px fixed | Own seat wind, own score once non-zero, whose turn it is |
 | Table top | remainder | Three opponents, the discard well, the round plaque |
 | Claim band | 44px **always reserved** | Contextual Chow / Pung / Kong / Win / Pass |
 | Hand row | tile height | The player's hand and their own exposed melds |
@@ -210,6 +212,13 @@ of it:
 plaque, the active seat's rule, the turn marker, the selected-tile underline,
 the Win control and the result sheet's total.
 
+**Brass marks live state and the one affirmative control.** The turn marker,
+the acting seat's rule, the selected tile's underline, the offered tile's
+outline, the plaque's round wind and the Win button. A seat's own wind glyph is
+*not* brass: it never changes value, and a static use of the accent trains the
+eye to read brass as decoration rather than as "this is live now", which costs
+the signals that are load-bearing.
+
 ## 8. Typography
 
 **No webfont.** The PWA must work offline with no runtime network request, and
@@ -277,8 +286,20 @@ drawn tile backs.** The count is the entire information; the backs would spend
 the width the exposed melds need in order to stay readable at phone size.
 
 A seat shows: seat wind glyph, position (Left / Across / Right), labelled
-score, concealed count, exposed melds, bonus tiles. Bonus tiles are drawn at
-reduced weight because they are settled score rather than live state.
+score **once it is non-zero**, concealed count, exposed melds, and a **count**
+of bonus tiles.
+
+**A score readout waits for a score.** All four seats begin a match at zero,
+and a labelled readout of a value that does not exist yet is a container around
+nothing (§2.2). The label itself is not the problem and is not removed:
+audit finding F-06 stands, and the moment there is a number it is labelled.
+
+**Bonus tiles are a labelled count, not drawn faces.** This is the judgement
+this section already makes about an opponent's concealed hand, applied
+consistently: the count is the entire information, the player cannot act on a
+bonus tile, and up to eight drawn faces per seat spend the width the exposed
+melds need in order to stay readable. Every individual bonus tile is itemised
+on the result sheet (§16), which is where its score is settled.
 
 **Turn ownership** is a brass rule above the acting seat's label, plus the
 words in the status strip. A rule has a shape, so the signal survives without
@@ -327,6 +348,18 @@ The claim band, left to right: **Win, Kong, Pung, Chow, [gap], Pass**.
   they cost rather than by their order in the row.
 - Controls never overlap the tiles a decision depends on. The rendered QA pass
   asserts this geometrically at every viewport and fails the run otherwise.
+
+**Beginner's band is reduced to Win, Pung and Pass.** Chow and the three kong
+declarations are hidden — a presentation filter over actions the engine has
+already declared legal, never a second opinion about legality. Because the
+engine holds a claim window open until every responder answers, hiding a
+player's only real option would stall the table permanently, so the session
+answers such a window with a pass on the player's behalf, on the same clock the
+bots use. That pass is **recorded in the game record**: `replayGame`
+reconstructs a resumed match from the recorded action list, and a pass that
+happened but was not written down would make a saved match fail to replay,
+which the persistence layer treats as corruption. `showAllClaims` restores the
+full band without leaving Beginner's rules.
 
 ## 15. Tile states
 
@@ -498,6 +531,31 @@ synthesised into the single design above rather than applied one at a time.
 
 ---
 
+**A 136-tile set for Beginner mode.** The engine supports it and the gate
+covers it, but it is the wrong lever for a beginner. `scoring.ts` awards an
+unconditional 1-faan "No Flowers" 無花 item only under the 144-tile profile and
+returns no bonus items at all under 136, so the same hand would score *lower*
+with a *shorter* breakdown in the mode meant to make winning feel reachable —
+and stats would stop being comparable between the two tables. It would also
+delete the `flowers-replacement` learning concept, which is the opposite of
+what the mode is for. The clutter flowers actually cause is three seats of
+drawn faces, which is a visual problem with a visual fix (§11, §24).
+
+**A single-hand match for Beginner mode.** `detectConcepts` fires
+`dealer-rotation` when the hand index advances, which never happens in a
+single-hand match, so the shorter match would teach one concept less.
+
+**Progressive unlocking of Chow and Kong after N hands.** It needs a persisted
+counter and a threshold with no principled value, and it changes the rules of
+the table under a player who did not ask for it, mid-session. The player is the
+only party who can tell when they are ready, so it is a visible toggle (§24).
+
+**Locking the Assist and Explain toggles in Beginner mode.** §21 carries "all
+three learning aids disable independently" as an exit criterion and PRD §9
+makes it a constraint. Entering Beginner *sets* them on, which gives the
+requirement its actual value — nobody plays a first hand with the aids off by
+accident — without breaking either document.
+
 ## 21. Contextual learning layer (#9)
 
 Three independent controls, each default on for the author's initial learning
@@ -571,13 +629,21 @@ the portrait menu and works fully offline, like the rest of the PWA (§19).
 Local only, three `localStorage` keys under a versioned `mahjong:v1:` prefix
 (`app/src/game/persistence.ts`), no cloud, no accounts, no telemetry:
 
-- **Settings** — the Assist, Explain and corner-label toggles (§21, §10).
-  Loaded once at startup and written back whenever any of the three changes.
-  A rules profile is not stored here separately: no rules-selection UI exists
-  yet, so the only rules profile a new match can start with is
-  `DEFAULT_RULES_PROFILE`, and every match already carries its own profile in
-  its game record's `config` field — persisting a second, currently-inert
-  copy would be dead plumbing.
+- **Settings** — the Assist, Explain and corner-label toggles (§21, §10), plus
+  the table mode and whether the claim band is reduced (§24). Loaded once at
+  startup and written back whenever any of them changes.
+  A rules profile is still not stored: it is *derived* from the mode
+  (`MODE_RULES` in `app/src/game/modes.ts`), and every match already carries
+  the profile it was dealt under in its game record's `config` field.
+  Persisting a second copy would let the two disagree.
+  The blob is at `version: 2`. A stored `version: 1` blob is migrated rather
+  than discarded — the shape check is strict, so without a migration every
+  existing player's toggles would silently reset. A v1 blob means someone who
+  has already played, so it migrates onto the **standard** table with the full
+  claim set and is never shown the first-launch question. The `mahjong:v1:`
+  key prefix is deliberately unchanged: it versions the store, `version`
+  versions the blob, and bumping the prefix would orphan the in-progress match
+  and the completed history.
 - **Current game** — the one in-progress match's `GameRecord`
   (`src/engine/types.ts`), overwritten after every action. This app seats one
   table at a time, so there is exactly one resumable slot.
@@ -728,3 +794,79 @@ not be reported as verified until a phone has actually done them:
    gesture navigation on.
 6. **Motion feel** at the shipped durations on the device's actual refresh rate.
 7. **Overall table density** at the real pixel density.
+
+---
+
+## 24. Beginner mode and the table de-clutter
+
+Two changes that travel together: a mode a new player can learn at, and a pass
+over the default table for labels that were saying nothing.
+
+### Entry
+
+One screen, one question, two buttons, no steps — PRD §9 rules out a tutorial
+flow, and this is the smallest thing that can route a new player to a table
+they can actually learn at. It renders ahead of the orientation split, so it
+works in whichever orientation the phone is in on a first launch; its own
+layout is a single centred column capped in `ch`, which is what lets one
+layout fit both without a breakpoint (§4).
+
+Asked exactly once. A stored mode *is* the record that the question was
+answered, which is why it is `TableMode | null` rather than a mode plus a
+separate "has been asked" flag: two fields can disagree, one cannot.
+
+`?mode=beginner|standard` stands in for the tap, alongside the existing
+`?seed=`. It carries the whole of the choice, reduced claim band included — a
+link that produced a "beginner" table still offering Chow would be a lie — and
+it is never written to storage, so it cannot reconfigure a real player's app.
+The rendered QA sweep and the accessibility check both depend on it: without
+it, a fresh browser profile lands on the choice screen and never reaches
+`.app`.
+
+### What the mode changes
+
+| Layer | Beginner |
+|---|---|
+| Rules | `minimumFaan: 0`. Exactly one axis moves — see §20 for the two that deliberately do not. |
+| Readouts | Own score, seat scores, seat wind glyphs, the bonus count and the wall count are hidden. Each is reference rather than decision input, and none is the only carrier: the winds and the wall stay in the accessible names, and every score is itemised on the result sheet. |
+| Claim band | Reduced to Win, Pung, Pass (§14). |
+| Guidance | Assist and Explain set on, corner labels at least `rank`, the explain banner held 11s instead of 7s and raised to body size, and the assist line leading with the gesture rather than the verdict. |
+
+Under the standard profile the engine withholds the `win` action until the
+hand clears the minimum faan floor, which is the one rule that most reliably
+strands a new player: the hand is visibly complete and the game refuses to end
+it. At zero, the core loop — four sets and a pair, then Win — is learnable
+inside a single hand. `HKOS_RULES.md` already names this profile "Beginner",
+and `tests/gate/corpus.test.ts` already exercises it as `PROFILE_144_OPEN`, so
+it is a ruleset the correctness gate proves rather than a new one.
+
+**A mode switch applies to the next match, never the live one.** A resumed or
+in-progress match keeps the profile in its own record, and the menu says so
+beside a Restart that deals a new one immediately. Rerolling a hand in progress
+because a setting moved would be the §2.5 violation.
+
+### How it is built
+
+One `data-beginner` attribute on the table root, and every rule in
+`app/src/styles/beginner.css`. Two consequences worth stating: the whole of
+what the mode changes visually can be read in one file, and because the
+component render tests mount components without that ancestor, the mode's
+styling cannot silently alter what those tests assert.
+
+Everything the mode does is subtractive, so the fixed reserves the responsive
+geometry rests on — the 26px strip, the 44px band, the seat label height — are
+untouched and §4's verified matrix still holds. **If a change to this mode ever
+forces an edit to `geometry.test.ts`, the change is wrong.**
+
+### The de-clutter, on both tables
+
+Recorded in the sections they belong to: the score readouts and the bonus
+count in §11, the status strip in §3, brass in §7, and sentence-case claim
+labels in §14. Two dead rules went with them — `.status__wall`, unrendered
+since the wall count moved to the plaque, and a `.well__empty` selector in
+`a11y-check.mjs` matching nothing.
+
+Deliberately left alone, because this document already records a reason for
+each: the "score" label itself (F-06), the plaque's "East round" label (§3's
+East-beside-East ambiguity), the han glyphs on the standard table (§8), and
+the itemised faan breakdown (§16).

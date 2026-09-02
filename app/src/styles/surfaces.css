@@ -228,3 +228,92 @@
   gap: 1px;
   margin-inline-start: var(--space-3);
 }
+
+/* ------------------------------------------------------ first launch ------
+ * The one-time mode question. It renders ahead of the orientation split, so
+ * it has to work in both: a single centred column, sized in ch and capped, is
+ * what lets one layout fit 915x412 and 412x915 without a breakpoint — and
+ * "there are no breakpoints, there is one calculation" stays true.
+ */
+.choice {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100dvh;
+  overflow-y: auto;
+  padding:
+    max(var(--space-6), var(--safe-top))
+    max(var(--space-7), var(--safe-right))
+    max(var(--space-6), var(--safe-bottom))
+    max(var(--space-7), var(--safe-left));
+  background:
+    radial-gradient(120% 70% at 50% 0%, var(--table-felt) 0%, var(--table-felt-deep) 60%,
+      var(--table-edge) 100%);
+}
+
+.choice__column {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  width: 100%;
+  max-width: 46ch;
+  margin: auto;
+}
+
+.choice__title {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: 0;
+  font-size: var(--text-lg);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-tight);
+}
+
+.choice__han {
+  font-family: var(--font-han);
+  font-size: 2.25rem;
+  line-height: 1;
+  color: var(--brass);
+}
+
+/* A real target, not a link: this is the first thing anyone taps. */
+.choice__option {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-height: var(--touch-min);
+  padding: var(--space-5) var(--space-6);
+  text-align: start;
+  border-radius: var(--radius-control);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-rest);
+  transition: transform var(--dur-press) var(--ease-out);
+}
+
+.choice__option:active {
+  transform: scale(0.99);
+}
+
+.choice__label {
+  font-size: var(--text-md);
+  font-weight: var(--weight-medium);
+  color: var(--text-primary);
+}
+
+.choice__detail {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+
+.choice__note {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--text-tertiary);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .choice__option:active {
+    transform: none;
+  }
+}

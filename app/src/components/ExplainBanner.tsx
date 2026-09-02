@@ -10,14 +10,17 @@ import { CONCEPTS, type ConceptId } from "../game/explain";
 export function ExplainBanner({
   concept,
   onDismiss,
+  dwellMs = 7000,
 }: {
   readonly concept: ConceptId;
   readonly onDismiss: () => void;
+  /** Beginner mode holds the note longer; it is reading, not glancing. */
+  readonly dwellMs?: number;
 }): JSX.Element {
   useEffect(() => {
-    const timer = window.setTimeout(onDismiss, 7000);
+    const timer = window.setTimeout(onDismiss, dwellMs);
     return () => { window.clearTimeout(timer); };
-  }, [concept, onDismiss]);
+  }, [concept, onDismiss, dwellMs]);
 
   const { title, body } = CONCEPTS[concept];
 

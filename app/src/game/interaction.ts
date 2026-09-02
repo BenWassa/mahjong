@@ -94,3 +94,64 @@ export function claimActions(actions: readonly GameAction[]): readonly ClaimActi
     (left, right) => (CLAIM_ORDER[left.type] ?? 5) - (CLAIM_ORDER[right.type] ?? 5),
   );
 }
+
+/**
+ * The claim types Beginner's reduced band hides.
+ *
+ * Win is the point of the game and Pass is the only way out of a claim
+ * window, so neither is ever hidden. Chow and the three kong declarations are:
+ * they are the shapes that most reliably stall a first-time player, who has to
+ * weigh them before understanding what either one costs.
+ */
+const HIDDEN_CLAIMS: ReadonlySet<GameAction["type"]> = new Set([
+  "claim-chow",
+  "claim-kong",
+  "declare-concealed-kong",
+  "declare-added-kong",
+]);
+
+export interface ReducedActions {
+  readonly shown: readonly GameAction[];
+  /**
+   * Set only when the reduction left the player with nothing to do but pass,
+   * so the session can answer the claim window on their behalf.
+   *
+   * This is load-bearing rather than a convenience. The engine holds a claim
+   * window open until every responder answers, so hiding a player's only real
+   * option without answering for them would stall the table for good.
+   */
+  readonly autoPass: GameAction | null;
+}
+
+/**
+ * Reduces the actions the interface offers the player, without ever adding
+ * one.
+ *
+ * This is a presentation filter over actions the engine has already declared
+ * legal. It never re-derives legality, and the engine remains the only
+ * authority on what is permitted — a reduced action is still a legal move the
+ * player is simply not being shown.
+ *
+ * The kong case needs no special handling. A concealed or added kong is
+ * declared during `awaiting-discard`, where the engine emits no `pass` at all
+ * and the player's discards survive the filter, so `shown` can never reduce to
+ * a lone pass there. Hiding the kong just leaves them discarding as normal.
+ */
+export function reducePlayerActions(
+  actions: readonly GameAction[],
+  showAll: boolean,
+): ReducedActions {
+  if (showAll) return { shown: actions, autoPass: null };
+
+  const shown = actions.filter((action) => !HIDDEN_CLAIMS.has(action.type));
+  if (shown.length === actions.length) return { shown, autoPass: null };
+
+  const pass = shown.find((action) => action.type === "pass");
+  if (pass !== undefined && shown.every((action) => action.type === "pass")) {
+    // Nothing the player was offered survived the reduction, so the band shows
+    // nothing at all rather than flashing up a lone Pass for a decision they
+    // were never actually given.
+    return { shown: [], autoPass: pass };
+  }
+  return { shown, autoPass: null };
+}

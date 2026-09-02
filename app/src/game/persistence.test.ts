@@ -34,12 +34,47 @@ describe("settings", () => {
   });
 
   it("round-trips a saved value", () => {
-    saveSettings({ version: 1, cornerLabel: "off", assistOn: false, explainOn: false });
-    expect(loadSettings()).toEqual({
-      version: 1,
+    saveSettings({
+      version: 2,
       cornerLabel: "off",
       assistOn: false,
       explainOn: false,
+      mode: "beginner",
+      showAllClaims: false,
+    });
+    expect(loadSettings()).toEqual({
+      version: 2,
+      cornerLabel: "off",
+      assistOn: false,
+      explainOn: false,
+      mode: "beginner",
+      showAllClaims: false,
+    });
+  });
+
+  it("keeps an unanswered first-launch question as an unanswered one", () => {
+    // `mode: null` is a legitimate stored state, not corruption: it is what
+    // "has never been asked" looks like on disk.
+    saveSettings({ ...DEFAULT_SETTINGS, cornerLabel: "off" });
+    expect(loadSettings().mode).toBeNull();
+    expect(loadSettings().cornerLabel).toBe("off");
+  });
+
+  it("migrates a v1 blob onto the standard table, keeping its toggles", () => {
+    // Someone with a v1 blob has already played this app. They must not be
+    // asked the new-player question, their table must not change under them,
+    // and above all their existing toggles must survive the upgrade.
+    window.localStorage.setItem(
+      "mahjong:v1:settings",
+      JSON.stringify({ version: 1, cornerLabel: "rank-suit", assistOn: false, explainOn: true }),
+    );
+    expect(loadSettings()).toEqual({
+      version: 2,
+      cornerLabel: "rank-suit",
+      assistOn: false,
+      explainOn: true,
+      mode: "standard",
+      showAllClaims: true,
     });
   });
 
@@ -50,7 +85,22 @@ describe("settings", () => {
   });
 
   it("falls back to the default for an unrecognised shape", () => {
-    window.localStorage.setItem("mahjong:v1:settings", JSON.stringify({ version: 2 }));
+    window.localStorage.setItem("mahjong:v1:settings", JSON.stringify({ version: 99 }));
+    expect(loadSettings()).toEqual(DEFAULT_SETTINGS);
+  });
+
+  it("falls back to the default for an unknown mode", () => {
+    window.localStorage.setItem(
+      "mahjong:v1:settings",
+      JSON.stringify({
+        version: 2,
+        cornerLabel: "rank",
+        assistOn: true,
+        explainOn: true,
+        mode: "expert",
+        showAllClaims: true,
+      }),
+    );
     expect(loadSettings()).toEqual(DEFAULT_SETTINGS);
   });
 

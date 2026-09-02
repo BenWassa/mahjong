@@ -15,6 +15,7 @@ import {
   type HandInteraction,
 } from "../game/interaction";
 import { seatPosition, seatPositionName } from "../game/labels";
+import type { TableMode } from "../game/modes";
 import { newMatchSeed } from "../game/seed";
 import type { SessionSnapshot } from "../game/session";
 import type { SessionHandle } from "../game/useGameSession";
@@ -37,6 +38,8 @@ export function TableView({
   assistOn,
   explainOn,
   learning,
+  mode,
+  claimsReduced,
 }: {
   readonly session: SessionHandle;
   readonly cornerLabel: CornerLabelMode;
@@ -44,7 +47,11 @@ export function TableView({
   readonly assistOn: boolean;
   readonly explainOn: boolean;
   readonly learning: LearningProgress;
+  readonly mode: TableMode;
+  /** True when the claim band is hiding Chow and Kong, which Explain says so. */
+  readonly claimsReduced: boolean;
 }): JSX.Element {
+  const beginner = mode === "beginner";
   const { snapshot, act, advance, restart, scoreBreakdown } = session;
   const { view, legalActions } = snapshot;
   const self = view.players[view.viewer];
@@ -150,13 +157,13 @@ export function TableView({
       return;
     }
     if (!explainOn) return;
-    const triggered = detectConcepts(previous, snapshot, belowMinimumFaanWin);
+    const triggered = detectConcepts(previous, snapshot, belowMinimumFaanWin, claimsReduced);
     const next = triggered.find((id) => !learning.has(id));
     if (next !== undefined) {
       learning.markSeen(next);
       setActiveConcept(next);
     }
-  }, [snapshot, explainOn, belowMinimumFaanWin, learning, endedPhase]);
+  }, [snapshot, explainOn, belowMinimumFaanWin, learning, endedPhase, claimsReduced]);
 
   // The three explain notes anchored to the result sheet fire at most once
   // each. Latched to the hand they first appear on, computed during render
@@ -202,10 +209,15 @@ export function TableView({
     if (snapshot.waitingTiles.length === 0) return null;
     return describeWaitingTiles(snapshot.waitingTiles);
   }, [assistOn, claims.length, suggestion, snapshot.waitingTiles]);
+  // Beginner leads with the gesture rather than the verdict: the tap-tap
+  // discard model is the thing a first-time player is still learning, and the
+  // hint line is where they are already looking.
   const assistHint =
     suggestion !== null ? (
       <p className="claimband__hint">
-        Suggested: discard <strong>{suggestion.tileName}</strong> — {suggestion.reason}
+        {beginner ? "Tap " : "Suggested: discard "}
+        <strong>{suggestion.tileName}</strong>
+        {beginner ? " twice to discard" : ""} — {suggestion.reason}
       </p>
     ) : waitingHint !== null ? (
       <p className="claimband__hint">
@@ -214,11 +226,15 @@ export function TableView({
     ) : null;
 
   return (
-    <div className="app" style={geometryVariables(geometry)}>
+    <div className="app" data-beginner={beginner} style={geometryVariables(geometry)}>
       <StatusStrip view={view} />
 
       {activeConcept !== null && (
-        <ExplainBanner concept={activeConcept} onDismiss={() => { setActiveConcept(null); }} />
+        <ExplainBanner
+          concept={activeConcept}
+          dwellMs={beginner ? 11000 : 7000}
+          onDismiss={() => { setActiveConcept(null); }}
+        />
       )}
 
       <main className="table" aria-label="Mahjong table">

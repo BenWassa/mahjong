@@ -7,6 +7,7 @@ import {
   discardableTiles,
   initialInteraction,
   reduceInteraction,
+  reducePlayerActions,
 } from "./interaction";
 
 /**
@@ -110,5 +111,61 @@ describe("claim ordering", () => {
       { type: "pass", seat: 0 },
     ]);
     expect(mixed.map((action) => action.type)).toEqual(["pass"]);
+  });
+});
+
+describe("reducing the player's options", () => {
+  const chow = { type: "claim-chow", seat: 0, tileIds: ["bamboo-2-0", "bamboo-3-0"] } as const;
+  const pung = { type: "claim-pung", seat: 0, tileIds: ["dots-5-0", "dots-5-1"] } as const;
+  const win = { type: "win", seat: 0 } as const;
+  const pass = { type: "pass", seat: 0 } as const;
+  const kong = {
+    type: "declare-concealed-kong",
+    seat: 0,
+    tileIds: ["dots-5-0", "dots-5-1", "dots-5-2", "dots-5-3"],
+  } as const;
+  const discard = { type: "discard", seat: 0, tileId: "dots-9-0" } as const;
+
+  it("is the identity when the full claim set is shown", () => {
+    const actions = [win, chow, pung, pass];
+    const result = reducePlayerActions(actions, true);
+    expect(result.shown).toBe(actions);
+    expect(result.autoPass).toBeNull();
+  });
+
+  it("hides chow but never win or pung", () => {
+    const result = reducePlayerActions([win, chow, pung, pass], false);
+    expect(result.shown).toEqual([win, pung, pass]);
+    expect(result.autoPass).toBeNull();
+  });
+
+  it("passes for the player when hiding left them nothing else to do", () => {
+    // The engine holds a claim window open until every responder answers, so
+    // hiding a player's only real option without answering for them would
+    // stall the table permanently. This is that case.
+    const result = reducePlayerActions([chow, pass], false);
+    expect(result.shown).toEqual([]);
+    expect(result.autoPass).toEqual(pass);
+  });
+
+  it("does not pass for the player when a real option survived", () => {
+    const result = reducePlayerActions([chow, pung, pass], false);
+    expect(result.shown).toEqual([pung, pass]);
+    expect(result.autoPass).toBeNull();
+  });
+
+  it("never passes on the player's own discard turn", () => {
+    // A concealed kong is declared during awaiting-discard, where the engine
+    // emits no pass at all. Hiding it must leave the player discarding, not
+    // auto-pass something that does not exist.
+    const result = reducePlayerActions([kong, discard], false);
+    expect(result.shown).toEqual([discard]);
+    expect(result.autoPass).toBeNull();
+  });
+
+  it("leaves an untouched list alone even when it is only a pass", () => {
+    const result = reducePlayerActions([pass], false);
+    expect(result.shown).toEqual([pass]);
+    expect(result.autoPass).toBeNull();
   });
 });

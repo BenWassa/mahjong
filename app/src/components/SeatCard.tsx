@@ -3,7 +3,6 @@ import type { JSX } from "react";
 import type { PublicPlayerState } from "@engine";
 
 import { seatPositionName, windName, type SeatPosition } from "../game/labels";
-import { Tile } from "../tiles/Tile";
 import { MeldGroup } from "./MeldGroup";
 
 /**
@@ -37,10 +36,15 @@ export function SeatCard({
           {{ east: "東", south: "南", west: "西", north: "北" }[player.seatWind]}
         </span>
         <span className="seat__where">{where}</span>
-        <span className="seat__score">
-          <span className="seat__scorelabel">score </span>
-          <span className="tabular">{player.score}</span>
-        </span>
+        {/* A labelled zero is a readout of a value that does not exist yet.
+            The label stays the moment there is a number to label (F-06); the
+            whole readout waits for one. */}
+        {player.score !== 0 && (
+          <span className="seat__score">
+            <span className="seat__scorelabel">score </span>
+            <span className="tabular">{player.score}</span>
+          </span>
+        )}
       </div>
 
       <p className="seat__concealed">
@@ -57,12 +61,16 @@ export function SeatCard({
         </div>
       )}
 
+      {/* A count, not up to eight drawn faces. This is the same judgement §11
+          already makes about an opponent's concealed hand — the count is the
+          whole of the information, and the faces spend the width the exposed
+          melds need to stay readable. Bonus tiles are settled score the player
+          cannot act on, and the result sheet itemises every one of them. */}
       {player.bonuses.length > 0 && (
-        <div className="seat__bonuses" role="group" aria-label="Bonus tiles">
-          {player.bonuses.map((tile) => (
-            <Tile key={tile.id} kind={tile.kind} variant="opponent" />
-          ))}
-        </div>
+        <p className="seat__bonuscount">
+          <span className="tabular">{player.bonuses.length}</span>
+          <span> bonus</span>
+        </p>
       )}
     </section>
   );
