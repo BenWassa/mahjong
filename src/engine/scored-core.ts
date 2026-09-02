@@ -1,5 +1,6 @@
 import {
   createInitialGame as createStructuralGame,
+  createScenarioGame as createStructuralScenarioGame,
   legalActionsFor as structuralLegalActionsFor,
   legalSystemActions as structuralLegalSystemActions,
   reduceGame as reduceStructuralGame,
@@ -325,6 +326,28 @@ export function createInitialGame(
   profile: RulesProfile,
 ): InternalGameState {
   const structural = createStructuralGame(seed, structuralProfile(profile));
+  const restored = withProfile(structural, profile);
+  return autoPassBelowMinimumOnlyResponders(settleTerminalState(restored));
+}
+
+/**
+ * A scenario hand, dealt from a caller-supplied wall ordering, carried through
+ * exactly the same scoring wrapper as `createInitialGame`. See
+ * `core.createScenarioGame` for why the arrangement is safe and ./scenario.ts
+ * for how one is specified.
+ */
+export function createScenarioGame(
+  seed: string,
+  profile: RulesProfile,
+  wall: readonly Tile[],
+  dealer: Seat = 0,
+): InternalGameState {
+  const structural = createStructuralScenarioGame(
+    seed,
+    structuralProfile(profile),
+    wall,
+    dealer,
+  );
   const restored = withProfile(structural, profile);
   return autoPassBelowMinimumOnlyResponders(settleTerminalState(restored));
 }

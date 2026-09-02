@@ -40,6 +40,7 @@ most of them are asserted by a test named in the section that states them.
 - [22. Persistence and stats (#10)](#22-persistence-and-stats-10)
 - [23. Capacitor Android packaging (#11)](#23-capacitor-android-packaging-11)
 - [24. Beginner mode and the table de-clutter](#24-beginner-mode-and-the-table-de-clutter)
+- [25. Learn to Play (#30)](#25-learn-to-play-30)
 
 ---
 
@@ -870,3 +871,201 @@ Deliberately left alone, because this document already records a reason for
 each: the "score" label itself (F-06), the plaque's "East round" label (§3's
 East-beside-East ambiguity), the han glyphs on the standard table (§8), and
 the itemised faan breakdown (§16).
+
+---
+
+## 25. Learn to Play (#30)
+
+An interactive onboarding that takes somebody who has never played from
+nothing to a real hand, in five short lessons and about six minutes.
+
+The rule it is built on, from the issue: **teach by changing the game state,
+not by explaining the game state.** A Pung is not defined; two matching tiles
+are put in the player's hand, an opponent throws the third, the Pung button
+appears, the player takes it, and the sentence explaining what they just did
+arrives afterwards. Nothing in it is a slideshow and nothing is a rulebook
+page — the one existing long-form surface, the rules reference (§21), is
+still the place prose lives.
+
+### Entry
+
+The first-launch question (§24) grows a third door and keeps its shape: one
+screen, one question, no steps. Learn to Play leads because it is the
+recommendation; the two "I know mahjong" doors go straight to a table.
+
+Every one of the three writes a mode, so `TableMode | null` remains the single
+field recording that the question was asked — the §24 argument against a mode
+plus a separate "has been asked" flag still holds. Choosing Learn writes
+`beginner`, because the player has just said they are new, which is the whole
+of what Beginner is for; a kill mid-lesson therefore lands them on a table
+they can learn at rather than back on the question.
+
+Learn is reachable forever afterwards from the portrait menu, and every lesson
+is replayable. Nothing about onboarding gates the game: there is no screen in
+it without a way out, and completing it is never required to reach a table.
+
+`?learn=1` opens the menu and `?learn=<lesson id>` opens one lesson, alongside
+the existing `?seed=` and `?mode=`. Like `?mode=`, they answer the first-launch
+question and are never written to storage; the rendered QA sweep and the
+accessibility check both depend on them.
+
+### Scenarios: an arranged wall, not a second game
+
+A lesson needs a particular hand, and there are two ways to get one. Searching
+seeds until a shuffle happens to produce it makes every lesson hostage to the
+PRNG. Writing a teaching mock of the rules produces a second, wrong mahjong.
+
+Both were refused. `src/engine/scenario.ts` takes a spec — which tiles each
+seat holds, which tiles the wall yields next — and turns it into an **ordering
+of the same 144 physical tiles**, which `createScenarioGame` deals through the
+production deal. A scenario hand differs from a dealt one in exactly one
+respect: how its wall was ordered. The deal, the bonus reveal, claim
+legality, priority, winning and scoring are all the engine's, and every move
+afterwards goes through `reduceGame` like any other game.
+
+Two properties fall out of that and are worth naming:
+
+- The engine's own conservation invariant is a real check on the arrangement,
+  because the arrangement is a permutation of the tile set rather than an
+  invented inventory. `createScenarioState` additionally asserts that what was
+  dealt is what the scenario asked for, which is what catches a future change
+  to the packet deal instead of quietly teaching from a hand nobody designed.
+- A scenario record **cannot** be replayed by `replayGame`, which rebuilds the
+  wall from the seed. Scenario games are therefore never written to the
+  resumable-game slot, and the tutorial keeps its own progress instead (below).
+
+A lesson names only the tiles it is teaching. The rest of each hand is padded
+from a deterministic shuffle seeded by the lesson id — not from the tile set in
+canonical order, which handed every opponent a contiguous run of one suit and a
+hand one tile from finished.
+
+### The lesson mechanism
+
+`TutorialRunner` is deliberately the same shape as `GameSession`: a plain class
+owning the engine and the pacing, with React subscribing to it, so a re-render
+can never advance a lesson. Three rules hold across all five:
+
+- **A step may only ever remove options.** `step.offer` filters actions the
+  engine has already ruled legal — the same reduction Beginner's claim band
+  performs, for the same reason (§24). Nothing invents an action.
+- **A wrong answer changes nothing.** The player's choice is checked against
+  the step's goal *before* it is applied, so a mistake produces an explanation
+  and another go at the same position rather than a state nobody designed.
+  Several steps compose the explanation from the move itself, because "that
+  tile is half of a run" and "that tile is half of your pair" are different
+  lessons.
+- **Opponents are the production bots.** A lesson scripts only the discards it
+  actually depends on — the tile that makes a Pung available, the tile that
+  completes the hand — and a scripted discard is still played through the
+  engine, which rejects it if it is not legal. Everything else is
+  `createHeuristicBot`, reading the same redacted view it reads at a real
+  table. Pacing is 620ms rather than the table's 360ms: a tutorial opponent's
+  move is to be read, not waited through.
+
+A step may name the position it is about (`until`), and the table then runs on
+until that holds and stops dead — which is how the lesson that teaches *why you
+cannot Chow this one* pauses on exactly the discard it is talking about. While
+it is travelling, a claim window offered to the player is passed on their
+behalf, because the engine holds a window open until every responder answers
+and one nobody answers stalls the table for good.
+
+### The five lessons
+
+| | Teaches | How |
+|---|---|---|
+| 1. Four sets and a pair | The target shape; Chow, Pung, Kong, pair | A finished hand, dealt and static, whose parts the player names by pointing at them. The one deliberately static lesson. |
+| 2. Taking a turn | Draw one, discard one, and turn order | The player's own discard, then three real opponent turns, then their next draw. |
+| 3. Choosing what to throw | That discards have better and worse answers | Three discards offered from a narrowed set, each wrong answer getting its own reason. Distance-to-completion in plain words; the word "shanten" never appears. |
+| 4. Taking other players' tiles | Pung, Chow, Kong, pass, and the Chow restriction | Five claims in a row, each set up by an opponent throwing the tile that completes a shape already in the player's hand — including one that is *not* claimable, thrown from the wrong seat. |
+| 5. Declaring a win | Recognising and calling a complete hand | A hand one tile away; an opponent throws it; the player declares. |
+
+All five run under the **standard** profile. A lesson taught at Beginner's
+zero-faan floor would be teaching a simplified rule as though it were the game,
+which #30 rules out. The one place the floor could bite — declaring the win —
+uses a hand built around a Red Dragon pung, worth one faan on its own, so it
+clears the real minimum.
+
+The graduation screen is where the two tables are told apart, and it has to be:
+a player arriving at Beginner from lessons taught under Standard needs to be
+told which rule was relaxed and that it is a starting setting. The hand after
+it is a genuine seeded match against the same bots — not a sixth scripted
+lesson — with the assist and explain layers §21 already provides, one opening
+note saying that nothing here is scripted, and the opponents paced 1.7× slower.
+It changes no rule and takes no decision away.
+
+### Progressive hidden information
+
+Lessons 1 to 4 play with all three opponents' hands face up, which is what lets
+a claim be explained by pointing at the tiles that caused it. Lesson 5 closes
+the table and says so out loud, so the player's last lesson is played under
+exactly the conditions the real game is played under.
+
+**The visibility is a separate value, not a doctored game state.** The redacted
+projection is untouched: `state(viewer)` still returns exactly what that seat
+may observe (`RULE-REDACT-1`), and the open hands come from
+`MahjongGame.openHandsForTutorial()` — named so no call site can pretend
+otherwise — which returns a `Map<Seat, Tile[]>`. That return type is the
+boundary rather than a convention: a bot consumes a `PublicGameState` and
+nothing else, so there is no object in existence shaped like a game state and
+carrying opponents' tiles for a caller to pass along by mistake.
+
+The production `SeatCard` is likewise left incapable of showing a hand. §11
+decided that an opponent is a *count*, and putting an escape hatch into that
+component would make the table's most sensitive rule a matter of which prop a
+caller happened to pass. Learn to Play draws its own `OpenSeat` instead.
+
+### Layout
+
+The lesson is the production table with the coach strip in place of the status
+readout, reusing `PlayerHand`, `ClaimBand` and `DiscardWell` unchanged — so
+what the player learns to tap is the thing they will be tapping five minutes
+later. The coach is a strip and not a panel: the tiles a sentence is about have
+to be visible while it is read, and a panel over the table would be a slideshow
+with extra steps.
+
+Two things differ from §3's composition, both forced by the one thing a lesson
+does that the table never does:
+
+- **The across seat is its own full-width row.** Thirteen face-up tiles need the
+  whole width to stay on one line; nested in the centre column they wrapped to
+  four rows on a 320px-tall phone and pushed the well down into the hand.
+- **Portrait is a supported way to take a lesson.** The table proper sends
+  portrait to the menu because fourteen tiles cannot be seated readably across
+  a phone's short edge (§4). A lesson holds the same fourteen — so portrait
+  wraps the hand onto two rows at a readable width and drops the side seats to
+  their counts, rather than shrinking below the 34px floor to keep one row. The
+  override is applied to the hand row, not to `.app`, so the geometry's own
+  computed values and everything derived from them are untouched.
+
+Nothing in `app/src/styles/tutorial.css` touches a rule the responsive geometry
+rests on: the 44px band, the hand's reserve and the 26px strip are unchanged,
+so §4's verified matrix still holds for the table proper. **If a change to Learn
+to Play ever forces an edit to `geometry.test.ts`, the change is wrong.**
+
+### Persistence
+
+One more `localStorage` key under the same versioned prefix (§22),
+`mahjong:v1:tutorial`: the lessons finished and whether the sequence has been
+completed. Deliberately its own blob rather than two more fields on the
+settings object, so a lesson renamed in a later build costs a filtered array
+rather than a settings migration — unknown ids are dropped and the rest
+survive.
+
+It records; it never gates. Nothing in the app reads it to decide whether a
+player may reach a table.
+
+### Exit criteria carried forward from #30
+
+- A first-time player can choose to learn or to skip, and skipping never locks
+  them out of anything.
+- The core sequence is completable in roughly five to eight minutes without
+  reading a rules document.
+- Every tutorial decision executes as a legal production engine transition.
+- Opponent hands can be opened for teaching without weakening the redaction
+  guarantee or what any bot can see.
+- The final hand is a real engine-driven match against the existing bots, and
+  the player makes its decisions.
+- Progress persists, lessons replay, and Beginner and Standard are told apart
+  where they differ.
+
+---

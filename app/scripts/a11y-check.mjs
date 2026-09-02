@@ -18,9 +18,14 @@ const page = await browser.newPage({ viewport: { width: 915, height: 412 } });
 await page.goto(`${BASE}?seed=a11y&mode=standard`, { waitUntil: "networkidle" });
 await page.waitForSelector(".hand__slot");
 
-/** WCAG relative luminance and contrast, computed on painted colours. */
-await page.addScriptTag({
-  content: `
+/**
+ * WCAG relative luminance and contrast, computed on painted colours.
+ *
+ * Defined here as source text because it has to run inside the browser. Every
+ * page this script opens installs it from this one constant, so a change to
+ * the maths — or to the felt fallback it ends on — reaches all of them.
+ */
+const CONTRAST_HELPERS = `
     window.__luminance = (rgb) => {
       const [r, g, b] = rgb.map((v) => {
         const c = v / 255;
@@ -52,36 +57,53 @@ await page.addScriptTag({
       const [hi, lo] = l1 > l2 ? [l1, l2] : [l2, l1];
       return (hi + 0.05) / (lo + 0.05);
     };
-  `,
-});
+`;
 
-// 1. Text contrast on every visible text node the interface owns.
-const contrast = await page.evaluate(() => {
-  const out = [];
-  const nodes = document.querySelectorAll(
-    ".status span, .seat span, .plaque span, .claim span, .offer__label",
-  );
-  for (const node of nodes) {
-    const text = (node.textContent ?? "").trim();
-    if (text === "" || node.closest(".visually-hidden") !== null) continue;
-    const style = getComputedStyle(node);
-    if (style.visibility === "hidden" || style.display === "none") continue;
-    const size = parseFloat(style.fontSize);
-    const weight = Number(style.fontWeight);
-    const large = size >= 24 || (size >= 18.66 && weight >= 700);
-    const ratio = window.__contrast(node);
-    if (ratio !== null) {
-      out.push({ text: text.slice(0, 28), ratio: Math.round(ratio * 100) / 100, large });
+const installContrastHelpers = (target) => target.addScriptTag({ content: CONTRAST_HELPERS });
+
+/**
+ * Every visible text node matching a selector, with its painted contrast ratio
+ * and whether WCAG counts it as large text.
+ */
+const measureContrast = (target, selector) =>
+  target.evaluate((query) => {
+    const out = [];
+    for (const node of document.querySelectorAll(query)) {
+      const text = (node.textContent ?? "").trim();
+      if (text === "" || node.closest(".visually-hidden") !== null) continue;
+      const style = getComputedStyle(node);
+      if (style.visibility === "hidden" || style.display === "none") continue;
+      const size = parseFloat(style.fontSize);
+      const weight = Number(style.fontWeight);
+      const large = size >= 24 || (size >= 18.66 && weight >= 700);
+      const ratio = window.__contrast(node);
+      if (ratio !== null) {
+        out.push({ text: text.slice(0, 28), ratio: Math.round(ratio * 100) / 100, large });
+      }
+    }
+    return out;
+  }, selector);
+
+/** Reports every measurement that falls under its WCAG floor. */
+const noteContrastFailures = (measurements, where) => {
+  for (const item of measurements) {
+    const floor = item.large ? 3 : 4.5;
+    if (item.ratio < floor) {
+      note(`Contrast ${item.ratio}:1 on "${item.text}" (needs ${floor}:1)${where}`);
     }
   }
-  return out;
-});
-for (const item of contrast) {
-  const floor = item.large ? 3 : 4.5;
-  if (item.ratio < floor) {
-    note(`Contrast ${item.ratio}:1 on "${item.text}" (needs ${floor}:1)`);
-  }
-}
+};
+
+await installContrastHelpers(page);
+
+// 1. Text contrast on every visible text node the interface owns.
+const contrast = await measureContrast(
+  page,
+  ".status span, .seat span, .plaque span, .claim span, .offer__label",
+);
+noteContrastFailures(contrast, "");
+/** Total text nodes measured across every surface, reported at the end. */
+let measured = contrast.length;
 
 // 2. Every interactive element has an accessible name and a real role.
 const unnamed = await page.evaluate(() =>
@@ -149,6 +171,110 @@ await page.evaluate(() => {
   document.head.append(style);
 });
 
+/*
+ * 7. Learn to Play (#30): the coach strip, in a fresh context of its own.
+ *
+ * The lessons are a second surface built from the same components as the
+ * table, so they inherit the same obligations — a coach sentence that fails
+ * contrast, or a "Next" button with no name, is exactly as much of a finding
+ * here as it would be on the table. A separate page rather than reusing the
+ * one above keeps the tutorial's own first-launch answer (`?learn=`) from
+ * fighting the `?mode=` one the table check already used.
+ */
+{
+  const learnPage = await browser.newPage({ viewport: { width: 915, height: 412 } });
+  await learnPage.goto(`${BASE}?learn=claims&seed=a11y`, { waitUntil: "networkidle" });
+  await learnPage.waitForSelector(".coach");
+
+  // The same measurement the table gets, against the same floors: a coach
+  // sentence is interface text like any other.
+  await installContrastHelpers(learnPage);
+  const coachContrast = await measureContrast(
+    learnPage,
+    ".coach span, .coach p, .coach button",
+  );
+  // A selector that matches nothing would otherwise pass silently, which is
+  // the one way an accessibility check can be worse than no check at all.
+  if (coachContrast.length === 0) note("No coach text was measured for contrast");
+  noteContrastFailures(coachContrast, " in the coach strip");
+  measured += coachContrast.length;
+
+  // Every button on the lesson screen — the coach's own controls included —
+  // needs a real accessible name, the same rule the table's buttons follow.
+  const learnUnnamed = await learnPage.evaluate(() =>
+    [...document.querySelectorAll("button, [role='button']")]
+      .filter((node) => {
+        const name = node.getAttribute("aria-label") ?? node.textContent ?? "";
+        return name.trim() === "";
+      })
+      .map((node) => node.className),
+  );
+  for (const cls of learnUnnamed) note(`Interactive element with no accessible name: .${cls}`);
+
+  // The coach's instruction area has to announce itself as a live region, or
+  // a screen reader user is never told the lesson moved on without going
+  // looking for the new sentence themselves.
+  const coachLive = await learnPage.evaluate(() => {
+    const body = document.querySelector(".coach__body");
+    if (body === null) return null;
+    return { role: body.getAttribute("role"), live: body.getAttribute("aria-live") };
+  });
+  if (coachLive === null) note("No .coach__body found on the lesson screen");
+  else {
+    if (coachLive.role !== "status") note(`.coach__body role is "${coachLive.role ?? ""}", not "status"`);
+    if (coachLive.live !== "polite") note(`.coach__body aria-live is "${coachLive.live ?? ""}", not "polite"`);
+  }
+
+  // Keyboard: the same first-Tab check as the table, on the tutorial's own
+  // controls (the coach strip sits ahead of the hand in tab order).
+  await learnPage.keyboard.press("Tab");
+  const learnFocusWalk = await learnPage.evaluate(() => ({ tag: document.activeElement?.tagName ?? "" }));
+  if (learnFocusWalk.tag !== "BUTTON") note(`First Tab on a lesson landed on ${learnFocusWalk.tag}, not a control`);
+
+  await learnPage.close();
+}
+
+// 8. Every lesson entry in the Learn to Play menu names itself: a screen
+// reader user picking a lesson needs more than the index number the sighted
+// layout leans on, so each `.learn__lesson` carries its own `aria-label`.
+{
+  const menuPage = await browser.newPage({ viewport: { width: 915, height: 412 } });
+  await menuPage.goto(`${BASE}?learn=1&seed=a11y`, { waitUntil: "networkidle" });
+  await menuPage.waitForSelector(".learn__lesson");
+  const unlabelled = await menuPage.evaluate(
+    () =>
+      [...document.querySelectorAll(".learn__lesson")].filter(
+        (node) => (node.getAttribute("aria-label") ?? "").trim() === "",
+      ).length,
+  );
+  if (unlabelled > 0) note(`${unlabelled} lesson buttons in the Learn to Play menu have no aria-label`);
+  await menuPage.close();
+}
+
+/*
+ * 9. Regression guard: the lesson that closes the table shows no hands.
+ *
+ * `?learn=win` is the one lesson that deliberately hides all three opponent
+ * hands again once the deal is settled, so it is the surface most likely to
+ * regress back to leaking them the way check 5 above guards against on the
+ * production table. The other four lessons show all three hands on purpose
+ * — that is the entire teaching device of Learn to Play — so this same check
+ * must NOT be run against them; do not "fix" that omission.
+ */
+{
+  const winPage = await browser.newPage({ viewport: { width: 915, height: 412 } });
+  await winPage.goto(`${BASE}?learn=win&seed=a11y`, { waitUntil: "networkidle" });
+  await winPage.waitForSelector(".coach");
+  const leakedInLesson = await winPage.evaluate(() => {
+    const seats = [...document.querySelectorAll(".seat")];
+    return seats.filter((node) => /of (Characters|Bamboo|Dots)/.test(node.innerHTML)).length;
+  });
+  if (leakedInLesson > 0) {
+    note(`${leakedInLesson} seats in the "win" lesson contain identified concealed tiles`);
+  }
+  await winPage.close();
+}
+
 await browser.close();
 
 if (problems.length > 0) {
@@ -156,4 +282,4 @@ if (problems.length > 0) {
   for (const problem of problems) console.error(`  - ${problem}`);
   process.exit(1);
 }
-console.log(`Accessibility check passed: ${contrast.length} text nodes measured, no findings`);
+console.log(`Accessibility check passed: ${measured} text nodes measured, no findings`);

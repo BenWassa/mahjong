@@ -40,6 +40,8 @@ export function TableView({
   learning,
   mode,
   claimsReduced,
+  guided = false,
+  onGuidedHandEnded,
 }: {
   readonly session: SessionHandle;
   readonly cornerLabel: CornerLabelMode;
@@ -50,6 +52,15 @@ export function TableView({
   readonly mode: TableMode;
   /** True when the claim band is hiding Chow and Kong, which Explain says so. */
   readonly claimsReduced: boolean;
+  /**
+   * The first hand after Learn to Play (#30). It opens with one note saying
+   * that this hand is real, and the session is paced slower for it. It changes
+   * no rule and takes no decision away — the assist and explain layers it
+   * leans on are the ones every table already has.
+   */
+  readonly guided?: boolean;
+  /** Called once the guided hand is over, so the guidance lapses with it. */
+  readonly onGuidedHandEnded?: () => void;
 }): JSX.Element {
   const beginner = mode === "beginner";
   const { snapshot, act, advance, restart, scoreBreakdown } = session;
@@ -127,12 +138,17 @@ export function TableView({
   // this fires, #10's persistence layer has already archived the record
   // that just completed.
   const onResultContinue = useCallback(() => {
+    // The guided hand is one hand. Its slower pacing and its opening note were
+    // for somebody who had just met the game; by the end of a whole hand they
+    // have not, and a table that stays deliberately slow is a table nobody
+    // asked for.
+    onGuidedHandEnded?.();
     if (endedPhase?.kind === "match-ended") {
       restart(newMatchSeed());
     } else {
       advance();
     }
-  }, [endedPhase, advance, restart]);
+  }, [endedPhase, advance, restart, onGuidedHandEnded]);
 
   const seatFor = (position: "left" | "across" | "right"): Seat =>
     OPPONENT_SEATS.find(
@@ -145,7 +161,11 @@ export function TableView({
   // this one, so a concept fires exactly on the turn it first becomes true,
   // and only the first still-unseen one of those is shown.
   const previousSnapshotRef = useRef<SessionSnapshot | null>(null);
-  const [activeConcept, setActiveConcept] = useState<ConceptId | null>(null);
+  // The guided hand opens on its own note rather than waiting for a concept to
+  // fire, because the thing it has to say is true before anybody has moved.
+  const [activeConcept, setActiveConcept] = useState<ConceptId | null>(
+    guided && explainOn ? "guided-hand" : null,
+  );
   useEffect(() => {
     const previous = previousSnapshotRef.current;
     previousSnapshotRef.current = snapshot;
@@ -157,13 +177,17 @@ export function TableView({
       return;
     }
     if (!explainOn) return;
+    if (activeConcept === "guided-hand" && !learning.has("guided-hand")) {
+      learning.markSeen("guided-hand");
+      return;
+    }
     const triggered = detectConcepts(previous, snapshot, belowMinimumFaanWin, claimsReduced);
     const next = triggered.find((id) => !learning.has(id));
     if (next !== undefined) {
       learning.markSeen(next);
       setActiveConcept(next);
     }
-  }, [snapshot, explainOn, belowMinimumFaanWin, learning, endedPhase, claimsReduced]);
+  }, [snapshot, explainOn, belowMinimumFaanWin, learning, endedPhase, claimsReduced, activeConcept]);
 
   // The three explain notes anchored to the result sheet fire at most once
   // each. Latched to the hand they first appear on, computed during render
@@ -232,7 +256,7 @@ export function TableView({
       {activeConcept !== null && (
         <ExplainBanner
           concept={activeConcept}
-          dwellMs={beginner ? 11000 : 7000}
+          dwellMs={activeConcept === "guided-hand" ? 14000 : beginner ? 11000 : 7000}
           onDismiss={() => { setActiveConcept(null); }}
         />
       )}

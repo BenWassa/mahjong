@@ -1,4 +1,12 @@
-export { MahjongGame, ReplayMismatchError, newGame, replayGame } from "./adapter.js";
+export {
+  MahjongGame,
+  ReplayMismatchError,
+  newGame,
+  newScenarioGame,
+  replayGame,
+} from "./adapter.js";
+export { ScenarioSpecError, buildScenarioWall, createScenarioState } from "./scenario.js";
+export type { ScenarioSpec } from "./scenario.js";
 export type {
   BonusTileKind,
   Discard,
@@ -13,6 +21,7 @@ export type {
   PublicGameState,
   PublicMeld,
   PublicPlayerState,
+  Meld,
   RulesProfile,
   Seat,
   Tile,

@@ -24,7 +24,8 @@ export type ConceptId =
   | "win-sources"
   | "exhaustive-draw"
   | "faan-breakdown"
-  | "reduced-claims";
+  | "reduced-claims"
+  | "guided-hand";
 
 export const CONCEPTS: Record<ConceptId, { readonly title: string; readonly body: string }> = {
   "claim-decisions": {
@@ -74,6 +75,13 @@ export const CONCEPTS: Record<ConceptId, { readonly title: string; readonly body
   "faan-breakdown": {
     title: "Reading the breakdown",
     body: "Each line is a separate scoring pattern. The total is their sum — this is what \"stacking\" means.",
+  },
+  "guided-hand": {
+    title: "A real hand",
+    body:
+      "Nothing here is scripted: the tiles were dealt at random and the other " +
+      "three are playing their own hands. The suggested discard and these " +
+      "notes both switch off from the menu whenever you want them gone.",
   },
   "reduced-claims": {
     title: "Chow and Kong are hidden",

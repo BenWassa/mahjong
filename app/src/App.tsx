@@ -11,6 +11,8 @@ import { loadSettings, saveSettings, type PersistedSettings } from "./game/persi
 import { newMatchSeed } from "./game/seed";
 import { useGameSession, type ActionReducer } from "./game/useGameSession";
 import type { CornerLabelMode } from "./tiles/Tile";
+import { isLessonId, type LessonId } from "./tutorial/ids";
+import { Learn } from "./tutorial/Learn";
 
 /**
  * Orientation is a screen-level property (PRD §7). The table is landscape
@@ -48,6 +50,22 @@ function initialSeed(): string {
 }
 
 /**
+ * `?learn=1` opens the Learn to Play menu on load; `?learn=<lesson id>` opens
+ * that lesson directly.
+ *
+ * It exists for the same reason `?mode=` does: the rendered QA sweep and the
+ * accessibility check need to reach a surface that a fresh browser profile
+ * otherwise only reaches through several taps. Like `?mode=`, it is never
+ * written to storage, so a link cannot reconfigure a real player's app.
+ */
+function urlLearn(): { open: boolean; lesson: LessonId | null } {
+  const value = new URLSearchParams(window.location.search).get("learn");
+  if (value === null) return { open: false, lesson: null };
+  if (isLessonId(value)) return { open: true, lesson: value };
+  return { open: value === "1", lesson: null };
+}
+
+/**
  * `?mode=beginner|standard`, alongside the existing `?seed=`.
  *
  * It selects the starting mode and counts as an answer to the first-launch
@@ -80,6 +98,11 @@ function initialMode(settings: PersistedSettings): {
   if (fromUrl !== null) {
     return { mode: fromUrl, showAllClaims: fromUrl === "standard" };
   }
+  // `?learn=` stands in for the tap on Learn to Play, which answers the
+  // question the same way that tap does — see `startLearning`.
+  if (urlLearn().open) {
+    return { mode: "beginner", showAllClaims: false };
+  }
   return { mode: null, showAllClaims: settings.showAllClaims };
 }
 
@@ -101,6 +124,22 @@ export function App(): JSX.Element {
   const [assistOn, setAssistOn] = useState(settings.assistOn);
   const [explainOn, setExplainOn] = useState(settings.explainOn);
   const [showAllClaims, setShowAllClaims] = useState(opening.showAllClaims);
+  /**
+   * Learn to Play (#30). It is a surface, not a mode: the table's own state is
+   * untouched while it is up, and leaving it — at any point, from any lesson —
+   * lands on exactly the table that was there before. `learnEntry` is read
+   * once, so a URL cannot reopen the lessons after the player has left them.
+   */
+  const [learnEntry] = useState(urlLearn);
+  const [learnOpen, setLearnOpen] = useState(learnEntry.open);
+  /**
+   * True for the hand immediately after finishing the lessons. It only raises
+   * the guidance the table already has; it never changes a rule, and the
+   * player still makes every decision.
+   */
+  const [guided, setGuided] = useState(false);
+  /** Whether the lessons were opened by the first-launch question. */
+  const [learnFirstRun, setLearnFirstRun] = useState(true);
 
   /**
    * Answering the first-launch question, and switching mode later, are the
@@ -139,8 +178,53 @@ export function App(): JSX.Element {
     });
   }, [cornerLabel, assistOn, explainOn, mode, showAllClaims]);
 
+  /**
+   * Opening Learn to Play from the first-launch question.
+   *
+   * It answers the question as well as opening the lessons — the player has
+   * said they are new, which is the whole of what Beginner is for — so a kill
+   * mid-lesson lands them on a table they can learn at rather than back on the
+   * question. The graduation screen asks again once they have finished, when
+   * the answer means something to them.
+   */
+  const startLearning = useCallback(() => {
+    chooseMode("beginner");
+    setLearnFirstRun(true);
+    setLearnOpen(true);
+  }, [chooseMode]);
+
+  /** Leaving the lessons for a table, with or without having finished them. */
+  const leaveLearning = useCallback(
+    (next: TableMode | null, wasGuided: boolean) => {
+      if (next !== null) chooseMode(next);
+      if (wasGuided) {
+        // Somebody arriving from the lessons gets the learning aids on
+        // whichever table they picked. `chooseMode` only does this for
+        // Beginner, and a player who has just been taught the game on the
+        // standard rules has earned the same help.
+        setAssistOn(true);
+        setExplainOn(true);
+      }
+      setGuided(wasGuided);
+      setLearnOpen(false);
+    },
+    [chooseMode],
+  );
+
   if (mode === null) {
-    return <ModeChoice onChoose={chooseMode} />;
+    return <ModeChoice onChoose={chooseMode} onLearn={startLearning} />;
+  }
+
+  if (learnOpen) {
+    return (
+      <Learn
+        cornerLabel={cornerLabel}
+        openAt={learnEntry.lesson}
+        firstRun={learnFirstRun}
+        onLeave={() => { leaveLearning(null, false); }}
+        onGraduate={(next) => { leaveLearning(next, true); }}
+      />
+    );
   }
 
   return (
@@ -150,6 +234,9 @@ export function App(): JSX.Element {
       assistOn={assistOn}
       explainOn={explainOn}
       showAllClaims={showAllClaims}
+      guided={guided}
+      onGuidedHandEnded={() => { setGuided(false); }}
+      onLearn={() => { setLearnFirstRun(false); setLearnOpen(true); }}
       onChooseMode={chooseMode}
       onCycleLabel={() => {
         setCornerLabel((current) => {
@@ -179,6 +266,9 @@ function Game({
   assistOn,
   explainOn,
   showAllClaims,
+  guided,
+  onGuidedHandEnded,
+  onLearn,
   onChooseMode,
   onCycleLabel,
   onToggleAssist,
@@ -190,6 +280,10 @@ function Game({
   readonly assistOn: boolean;
   readonly explainOn: boolean;
   readonly showAllClaims: boolean;
+  /** The guided first hand, straight out of Learn to Play (#30). */
+  readonly guided: boolean;
+  readonly onGuidedHandEnded: () => void;
+  readonly onLearn: () => void;
   readonly onChooseMode: (mode: TableMode) => void;
   readonly onCycleLabel: () => void;
   readonly onToggleAssist: () => void;
@@ -205,7 +299,10 @@ function Game({
     (actions) => reducePlayerActions(actions, showAllClaims),
     [showAllClaims],
   );
-  const session = useGameSession(seed, MODE_RULES[mode], reduceActions);
+  // The guided hand is paced for reading rather than for play. It is the only
+  // thing the flag changes about the engine loop: no rule moves, and no
+  // decision is taken away.
+  const session = useGameSession(seed, MODE_RULES[mode], reduceActions, guided ? 1.7 : 1);
   const learning = useLearningProgress();
 
   if (showRules) {
@@ -309,6 +406,18 @@ function Game({
           </div>
 
           <div className="portrait__setting">
+            <span id="learn-link">Learn to play</span>
+            <button
+              type="button"
+              className="portrait__toggle"
+              aria-describedby="learn-link"
+              onClick={onLearn}
+            >
+              Lessons
+            </button>
+          </div>
+
+          <div className="portrait__setting">
             <span id="rules-link">Full rules</span>
             <button
               type="button"
@@ -338,6 +447,8 @@ function Game({
           legal actions and can suggest a discard. Explain shows a short note
           the first time a rule matters. Corner labels are a learning layer
           over the traditional face. None is ever required to make a legal move.
+          The lessons can be replayed as often as you like and never affect the
+          match you are in.
         </p>
       </div>
     );
@@ -353,6 +464,8 @@ function Game({
       learning={learning}
       mode={mode}
       claimsReduced={!showAllClaims}
+      guided={guided}
+      onGuidedHandEnded={onGuidedHandEnded}
     />
   );
 }

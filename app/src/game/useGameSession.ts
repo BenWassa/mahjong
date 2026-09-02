@@ -37,12 +37,13 @@ function createSession(
   seed: string,
   rules: RulesProfile,
   reduceActions: ActionReducer,
+  pace: number,
 ): GameSession {
   const resumeFrom = loadCurrentGame();
   return new GameSession(
     resumeFrom === null
-      ? { seed, rules, reduceActions }
-      : { seed, rules, reduceActions, resumeFrom },
+      ? { seed, rules, reduceActions, pace }
+      : { seed, rules, reduceActions, resumeFrom, pace },
   );
 }
 
@@ -54,6 +55,8 @@ export function useGameSession(
   initialSeed: string,
   rules: RulesProfile,
   reduceActions: ActionReducer,
+  /** Opponent pacing multiplier; 1.7 for the guided first hand (#30). */
+  pace = 1,
 ): SessionHandle {
   const [seed, setSeed] = useState(initialSeed);
 
@@ -62,7 +65,15 @@ export function useGameSession(
   // player is in the middle of: a switch applies to the next match, and the
   // menu says so. Do not "fix" this into an effect keyed on `rules`.
   const rulesRef = useRef(rules);
+  // Read only when a session is constructed, for the same reason as the rules
+  // profile: re-pacing the table under a hand in progress is not something the
+  // player asked for. Kept current so the *next* match picks up the change —
+  // the guided hand's slower pacing lapses when that hand is over (#30).
+  const paceRef = useRef(pace);
   const reduceRef = useRef(reduceActions);
+  useEffect(() => {
+    paceRef.current = pace;
+  }, [pace]);
   useEffect(() => {
     rulesRef.current = rules;
   }, [rules]);
@@ -80,7 +91,7 @@ export function useGameSession(
 
   const sessionRef = useRef<GameSession | null>(null);
   if (sessionRef.current === null) {
-    sessionRef.current = createSession(seed, rulesRef.current, stableReduce);
+    sessionRef.current = createSession(seed, rulesRef.current, stableReduce, paceRef.current);
   }
   const session = sessionRef.current;
   const [snapshot, setSnapshot] = useState<SessionSnapshot>(() => session.snapshot());
@@ -117,6 +128,7 @@ export function useGameSession(
         seed: nextSeed,
         rules: rulesRef.current,
         reduceActions: stableReduce,
+        pace: paceRef.current,
       });
       persist(sessionRef.current);
       setSeed(nextSeed);

@@ -197,9 +197,20 @@ function buildHand(
   roundWind: Wind,
   previousRecord: GameRecord,
   scores: readonly [number, number, number, number],
+  arrangedWall: readonly Tile[] | null = null,
 ): BuiltHand {
   const currentHandSeed = handSeed(seed, handIndex);
-  const wall = [...shuffleTiles(createTileSet(config.tileSetSize), currentHandSeed)];
+  // An arranged wall is a caller-supplied ordering of the same physical tile
+  // set, used only by `createScenarioGame` (see ./scenario.ts). Everything
+  // below — the packet deal, bonus reveal and replacement, the opening phase —
+  // runs exactly as it does for a shuffled wall, so a scenario hand is a real
+  // engine hand that happens to know what it dealt. The conservation invariant
+  // at the end of this function is what proves the arrangement is a genuine
+  // permutation rather than a doctored inventory.
+  const wall =
+    arrangedWall === null
+      ? [...shuffleTiles(createTileSet(config.tileSetSize), currentHandSeed)]
+      : [...arrangedWall];
   const players: [MutablePlayer, MutablePlayer, MutablePlayer, MutablePlayer] = [
     { seat: 0, concealed: [], melds: [], bonuses: [], score: scores[0] },
     { seat: 1, concealed: [], melds: [], bonuses: [], score: scores[1] },
@@ -347,6 +358,44 @@ export function createInitialGame(
     completed: false,
   };
   return buildHand(seed, config, 0, 0, 0, "east", record, [0, 0, 0, 0]).state;
+}
+
+/**
+ * Builds the opening hand of a match from a caller-supplied wall ordering
+ * rather than from the seed's shuffle.
+ *
+ * This is the only entry point that does not derive its wall from the seed,
+ * and it exists for the deterministic teaching scenarios in ./scenario.ts. It
+ * deliberately reuses `buildHand`: the deal, the bonus reveal and replacement,
+ * the opening phase and the conservation invariant are the production ones, so
+ * the state it returns is indistinguishable from a dealt hand except in how
+ * its wall was ordered. Every subsequent transition goes through `reduceGame`
+ * like any other game.
+ *
+ * A record produced this way cannot be reconstructed by `replayGame`, which
+ * rebuilds the wall from the seed. Scenario games are therefore never written
+ * to the resumable-game slot; see `app/src/tutorial/`.
+ */
+export function createScenarioGame(
+  seed: string,
+  profile: RulesProfile,
+  wall: readonly Tile[],
+  dealer: Seat = 0,
+): InternalGameState {
+  if (seed.length === 0) {
+    throw new RangeError("A non-empty seed is required");
+  }
+  const config = validateProfile(profile);
+  const record: GameRecord = {
+    version: 1,
+    seed,
+    config,
+    actions: [],
+    events: [{ type: "match-started", seed }],
+    hands: [],
+    completed: false,
+  };
+  return buildHand(seed, config, 0, dealer, dealer, "east", record, [0, 0, 0, 0], wall).state;
 }
 
 function sortedConcealed(player: PlayerState): readonly Tile[] {
