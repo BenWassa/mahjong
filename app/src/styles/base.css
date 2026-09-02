@@ -86,3 +86,101 @@ button {
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum" 1;
 }
+
+/* ------------------------------------------------------ layout diagnostics -- */
+
+/*
+ * The `?layoutdebug=1` HUD (game/layoutDebug.ts).
+ *
+ * Deliberately outside the design system: monospace, unstyled controls, a flat
+ * near-black plate. It is an instrument, not a surface, and it must never be
+ * mistaken for part of the table in a screenshot. Nothing in the interface
+ * links to it, so this can only ever be on because somebody typed the
+ * parameter.
+ *
+ * It sits above everything including the result sheet and Peek, because the
+ * layout of an overlay is exactly the thing it may be being used to diagnose.
+ * It never eats a tap: only the panel itself takes pointer events, and it can
+ * be moved to the other corner or collapsed to one line to get it off whatever
+ * is being looked at.
+ */
+.layoutdebug {
+  position: fixed;
+  top: max(2px, var(--safe-top));
+  z-index: 90;
+  max-width: min(60ch, calc(100% - 8px));
+  padding: 4px 6px;
+  font-family: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+  font-size: 10px;
+  line-height: 1.35;
+  color: #d8f0e2;
+  background: rgba(4, 12, 9, 0.86);
+  border: 1px solid rgba(216, 240, 226, 0.28);
+  border-radius: 4px;
+  text-align: start;
+}
+
+.layoutdebug[data-corner="start"] {
+  inset-inline-start: max(2px, var(--safe-left));
+}
+
+.layoutdebug[data-corner="end"] {
+  inset-inline-end: max(2px, var(--safe-right));
+}
+
+.layoutdebug--closed {
+  font-variant-numeric: tabular-nums;
+}
+
+.layoutdebug__bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 2px;
+}
+
+.layoutdebug__title {
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+
+.layoutdebug__bar button {
+  padding: 2px 6px;
+  font: inherit;
+  color: inherit;
+  background: rgba(216, 240, 226, 0.12);
+  border: 0;
+  border-radius: 3px;
+}
+
+.layoutdebug__rows {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0 8px;
+  margin: 0;
+}
+
+.layoutdebug__row {
+  display: contents;
+}
+
+.layoutdebug__row dt {
+  opacity: 0.6;
+  white-space: nowrap;
+}
+
+.layoutdebug__row dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+}
+
+/* A breached minimum is the one thing here worth finding at a glance, and it is
+ * marked by a rule as well as by colour — the same rule §7 asks of every other
+ * state in this product, instrument or not. */
+.layoutdebug__row[data-alert="true"] dd {
+  padding-inline-start: 4px;
+  color: #ffd7a1;
+  border-inline-start: 2px solid #ffd7a1;
+}

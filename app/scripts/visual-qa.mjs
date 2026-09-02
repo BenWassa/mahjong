@@ -37,6 +37,10 @@ const VIEWPORTS = [
     insets: { top: 0, right: 48, bottom: 24, left: 48 },
   },
   { id: "small-568", width: 568, height: 320, insets: null },
+  // The short/narrow class the responsive priority policy was written for: it
+  // is where opponent metadata collapses but the drawn melds survive, and the
+  // one the physical phone kept landing in.
+  { id: "short-600x340", width: 600, height: 340, insets: null },
 ];
 
 const SEEDS = ["qa-1", "qa-2", "qa-3", "qa-4", "qa-5", "qa-6", "qa-7", "qa-8"];
@@ -94,7 +98,10 @@ async function assertGeometry(page, label, viewport) {
     const slots = [...document.querySelectorAll(".hand__slot")];
     const rects = slots.map((node) => node.getBoundingClientRect());
     const controls = [
-      ...document.querySelectorAll(".claim, .sheet__go, .portrait__toggle, .coach__go, .learn__lesson"),
+      ...document.querySelectorAll(
+        ".claim, .sheet__go, .portrait__toggle, .coach__go, .coach__peek," +
+          " .peek__close, .learn__lesson",
+      ),
     ];
     const style = getComputedStyle(document.querySelector(".app") ?? doc);
     return {
@@ -116,6 +123,23 @@ async function assertGeometry(page, label, viewport) {
       handBottom: rects.length ? Math.max(...rects.map((r) => r.bottom)) : null,
       viewportW: window.innerWidth,
       viewportH: window.innerHeight,
+      // The responsive priority policy's active state, straight off the DOM.
+      // A screenshot alone cannot say which tier produced it.
+      tier: document.querySelector(".app")?.dataset.tier ?? null,
+      // Peek's tiles, when it is open. The whole point of moving the open
+      // hands off the table was that they became readable, so this is asserted
+      // rather than eyeballed.
+      peekTileW: (() => {
+        const tiles = [...document.querySelectorAll(".openseat__hand .tile")];
+        return tiles.length
+          ? Math.min(...tiles.map((node) => node.getBoundingClientRect().width))
+          : null;
+      })(),
+      // Nothing outside Learn to Play may ever draw an opponent's concealed
+      // tiles, and inside it only the Peek overlay may.
+      openHandsOutsidePeek:
+        document.querySelectorAll(".openseat__hand").length > 0 &&
+        document.querySelector(".peek__panel") === null,
       // Effective hit area, which is padded past the drawn tile on purpose.
       smallestTarget: slots.length
         ? Math.min(
@@ -195,6 +219,22 @@ async function assertGeometry(page, label, viewport) {
   }
   if (report.claimOverTile) {
     finding("high", "occlusion", "A claim control overlaps a tile the decision depends on", where);
+  }
+  if (report.peekTileW !== null && report.peekTileW < 34) {
+    finding(
+      "high",
+      "legibility",
+      `Peek tile width ${Math.round(report.peekTileW)}px is below the readable floor`,
+      where,
+    );
+  }
+  if (report.openHandsOutsidePeek) {
+    finding(
+      "high",
+      "hidden-information",
+      "An opponent's concealed hand is drawn outside the Peek overlay",
+      where,
+    );
   }
   for (const clip of report.clipped) {
     finding("high", "clipping", `Container clips its own content: ${clip}`, where);
@@ -442,6 +482,80 @@ async function describeLessonState(page) {
 }
 
 /**
+ * Peek: open it, look at it, and get back out of it three different ways.
+ *
+ * This is the surface that replaced the permanently open opponent hands, so
+ * the assertions it needs are the ones the old rails could never pass — tiles
+ * above the readable floor — plus the ones an overlay over a live table owes:
+ * the lesson holds still behind it, and every exit works.
+ */
+async function walkPeek(page, viewport, lessonId) {
+  const control = page.locator(".coach__peek");
+  if ((await control.count()) === 0) return;
+
+  await control.first().click();
+  await page.waitForSelector(".peek__panel", { timeout: 5000 });
+  await page.waitForTimeout(200);
+  await capture(page, viewport, `learn-${lessonId}-peek`, true);
+
+  const held = await page.evaluate(() => ({
+    panels: document.querySelectorAll(".openseat__hand").length,
+    tiles: document.querySelectorAll(".openseat__hand .tile").length,
+    discards: document.querySelectorAll(".well__cell").length,
+  }));
+  if (held.panels === 0 || held.tiles === 0) {
+    finding("high", "peek", "Peek opened with no hands in it", `${viewport.id} / ${lessonId}`);
+  }
+
+  // The lesson's pacing is stopped while this is up: an opponent moving behind
+  // the overlay would change the hands the player came here to read, and would
+  // do it out of sight.
+  await page.waitForTimeout(1600);
+  const after = await page.evaluate(() => document.querySelectorAll(".well__cell").length);
+  if (after !== held.discards) {
+    finding(
+      "high",
+      "peek",
+      `The table moved behind Peek: ${held.discards} discards became ${after}`,
+      `${viewport.id} / ${lessonId}`,
+    );
+  }
+
+  // Escape, the backdrop and the close control are all the same door.
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(250);
+  if ((await page.locator(".peek__panel").count()) !== 0) {
+    finding("high", "peek", "Escape did not close Peek", `${viewport.id} / ${lessonId}`);
+  }
+
+  await control.first().click();
+  await page.waitForSelector(".peek__panel", { timeout: 5000 });
+  await page.goBack();
+  await page.waitForTimeout(250);
+  if ((await page.locator(".peek__panel").count()) !== 0) {
+    finding("high", "peek", "The back button did not close Peek", `${viewport.id} / ${lessonId}`);
+  }
+  if ((await page.locator(".coach").count()) === 0) {
+    finding("high", "peek", "The back button left the lesson entirely", `${viewport.id} / ${lessonId}`);
+  }
+
+  await control.first().click();
+  await page.waitForSelector(".peek__panel", { timeout: 5000 });
+  await page.click(".peek__close");
+  await page.waitForTimeout(250);
+  if ((await page.locator(".peek__panel").count()) !== 0) {
+    finding("high", "peek", "Close did not close Peek", `${viewport.id} / ${lessonId}`);
+  }
+
+  // And the lesson is running again afterwards, not frozen behind a closed
+  // overlay.
+  const resumed = await page.evaluate(() => document.querySelector(".coach") !== null);
+  if (!resumed) {
+    finding("high", "peek", "The lesson did not survive Peek", `${viewport.id} / ${lessonId}`);
+  }
+}
+
+/**
  * Walks one lesson far enough to see more than its opening screen: a few
  * coach turns, a discard or two, and a claim decision where the lesson offers
  * one. Capped well under the length of a real hand — a lesson is a handful of
@@ -454,6 +568,7 @@ async function walkLesson(page, viewport, lessonId, steps) {
   await page.waitForSelector(".coach", { timeout: 10000 });
   await page.waitForTimeout(250);
   await capture(page, viewport, `learn-${lessonId}-start`);
+  await walkPeek(page, viewport, lessonId);
 
   for (let step = 0; step < steps; step += 1) {
     const state = await describeLessonState(page);
@@ -544,6 +659,75 @@ async function walkLesson(page, viewport, lessonId, steps) {
     );
     await page.close();
   }
+}
+
+/*
+ * The layout diagnostics HUD (`?layoutdebug=1`).
+ *
+ * Two assertions, and they are opposites: with the parameter it is there and
+ * carries the numbers a phone needs; without it there is no trace of it
+ * anywhere in the interface. A diagnostic that leaks into normal play is a
+ * defect, and a diagnostic that cannot be switched on from a phone is useless.
+ */
+{
+  const viewport = { id: "layoutdebug", width: 568, height: 320, insets: null };
+  const page = await browser.newPage({
+    viewport: { width: viewport.width, height: viewport.height },
+    deviceScaleFactor: 2,
+  });
+  page.on("pageerror", (error) => {
+    finding("high", "runtime", `Uncaught error: ${error.message}`, viewport.id);
+  });
+
+  await page.goto(`${BASE}?seed=qa-1&mode=standard&layoutdebug=1`, {
+    waitUntil: "domcontentloaded",
+  });
+  await page.waitForSelector(".app", { timeout: 10000 });
+  await page.waitForSelector(".layoutdebug", { timeout: 5000 });
+  await page.waitForTimeout(700);
+  await capture(page, viewport, "hud", true);
+
+  const hud = await page.evaluate(() => {
+    const node = document.querySelector(".layoutdebug");
+    const text = node?.textContent ?? "";
+    const rect = node?.getBoundingClientRect() ?? { width: 0, height: 0 };
+    return {
+      text,
+      width: rect.width,
+      height: rect.height,
+      collapses: document.querySelectorAll(".layoutdebug__bar button").length,
+    };
+  });
+  for (const wanted of ["viewport", "safe area", "state", "hand tile", "regions", "breaches"]) {
+    if (!hud.text.includes(wanted)) {
+      finding("high", "diagnostics", `The layout HUD is missing its ${wanted} row`, viewport.id);
+    }
+  }
+  // It reports the drawn tile as well as the computed one; a HUD that only
+  // echoes the engine back cannot tell a stylesheet bug from a geometry bug.
+  if (!hud.text.includes("drawn")) {
+    finding("high", "diagnostics", "The layout HUD does not report the drawn tile", viewport.id);
+  }
+  if (hud.collapses < 2) {
+    finding("medium", "diagnostics", "The layout HUD cannot be moved or hidden", viewport.id);
+  }
+  if (hud.width > viewport.width || hud.height > viewport.height) {
+    finding("high", "diagnostics", "The layout HUD does not fit the viewport it reports on", viewport.id);
+  }
+
+  // Collapsed, it is one line and still says the three things worth glancing at.
+  await page.click(".layoutdebug__bar button:last-child");
+  await page.waitForTimeout(150);
+  await capture(page, viewport, "hud-collapsed", true);
+
+  await page.goto(`${BASE}?seed=qa-1&mode=standard`, { waitUntil: "domcontentloaded" });
+  await page.waitForSelector(".app", { timeout: 10000 });
+  await page.waitForTimeout(400);
+  if ((await page.locator(".layoutdebug").count()) !== 0) {
+    finding("high", "diagnostics", "The layout HUD is present without its parameter", viewport.id);
+  }
+
+  await page.close();
 }
 
 await browser.close();

@@ -223,6 +223,55 @@
   font-variant-numeric: tabular-nums;
 }
 
+/*
+ * The exposed-meld count a squeezed seat rail falls back to.
+ *
+ * Drawn at the same weight as the concealed count beside it, because they are
+ * the same kind of statement: this is what is over there, named rather than
+ * shown. The tiles themselves come back the moment the rail has the width for
+ * them again (game/geometry.ts, the responsive priority policy).
+ */
+.seat__meldcount {
+  margin: 0;
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+/*
+ * The tiers the priority policy declares (game/geometry.ts), applied to the
+ * things a stylesheet is better at than a layout engine: the felt's own
+ * padding and the width the seat rails are allowed to hold.
+ *
+ * Nothing here shrinks a tile or a control. The hand, the claim band and the
+ * discard well keep every pixel the geometry gave them at every tier; what
+ * changes is how much of the felt is spent on the rails around them.
+ */
+.app[data-tier="compact"] .seat,
+.app[data-tier="tight"] .seat {
+  gap: var(--space-2);
+  padding-block: var(--space-1) var(--space-2);
+}
+
+/* The side rails only. The across seat is a row inside the centre column and
+ * has no width of its own to give back — capping it would wrap a label rather
+ * than free anything for the well. */
+.app[data-tier="compact"] .seat:not(.seat--across),
+.app[data-tier="tight"] .seat:not(.seat--across) {
+  max-width: 26vw;
+}
+
+.app[data-tier="tight"] .tabletop {
+  gap: var(--space-3);
+}
+
+.app[data-tier="tight"] .table {
+  padding: var(--space-2) var(--space-4) var(--space-3);
+}
+
 .meld {
   display: flex;
   gap: 1px;

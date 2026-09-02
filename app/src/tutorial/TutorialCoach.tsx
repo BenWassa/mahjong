@@ -21,10 +21,16 @@ export function TutorialCoach({
   snapshot,
   onAdvance,
   onQuit,
+  onPeek = null,
 }: {
   readonly snapshot: TutorialSnapshot;
   readonly onAdvance: () => void;
   readonly onQuit: () => void;
+  /**
+   * Opens the Peek overlay. Null when this lesson reveals no hands, in which
+   * case no control is drawn at all — the absence is the guarantee.
+   */
+  readonly onPeek?: (() => void) | null;
 }): JSX.Element {
   const { step, feedback, stepSatisfied, stepIndex, stepCount, title, waitingOn } = snapshot;
   const canContinue = stepSatisfied || step.kind === "note";
@@ -64,6 +70,16 @@ export function TutorialCoach({
         <span className="visually-hidden">
           Step {stepIndex + 1} of {stepCount}
         </span>
+        {/*
+          Peek sits with the lesson's own controls rather than on the felt: it
+          is a thing to read, not a move, and the table has no room to spare for
+          a floating button over the discard well.
+        */}
+        {onPeek !== null && (
+          <button type="button" className="coach__peek" onClick={onPeek}>
+            Peek hands
+          </button>
+        )}
         <button type="button" className="coach__quit" onClick={onQuit}>
           Leave
         </button>

@@ -20,6 +20,8 @@ export interface TutorialHandle {
   readonly act: (action: GameAction) => void;
   readonly identify: (tileId: TileId) => void;
   readonly advance: () => void;
+  /** Holds the lesson's opponent pacing still while Peek is open. */
+  readonly setPaused: (paused: boolean) => void;
 }
 
 export function useTutorialLesson(lessonId: LessonId): TutorialHandle {
@@ -48,6 +50,7 @@ export function useTutorialLesson(lessonId: LessonId): TutorialHandle {
     act: useCallback((action: GameAction) => { runnerRef.current?.act(action); }, []),
     identify: useCallback((tileId: TileId) => { runnerRef.current?.identify(tileId); }, []),
     advance: useCallback(() => { runnerRef.current?.advance(); }, []),
+    setPaused: useCallback((paused: boolean) => { runnerRef.current?.setPaused(paused); }, []),
   };
 }
 

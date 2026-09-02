@@ -44,6 +44,11 @@ npm run check:all                # the whole repository gate
 npm run qa                       # rendered responsive QA across the viewport matrix
 ```
 
+Append `?layoutdebug=1` to a table or lesson URL — on the dev server or on the
+deployed PWA — for the layout diagnostics HUD: what the phone reports, what the
+geometry engine decided, and what the browser actually drew. See
+[`docs/DESIGN.md`](docs/DESIGN.md) §4b.
+
 The production app lives in [`app/`](app). It imports the engine and bots
 directly from `src/`, so a rules or bot change cannot silently diverge from
 what the table plays.

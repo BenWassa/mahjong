@@ -134,7 +134,9 @@ tileH       = tileW × 4/3
 
 Opponent, discard and meld tiles are derived from `tileW` (×0.38, ×0.54, ×0.46,
 each clamped), so the table reads as one set of objects seen at different
-distances rather than as three unrelated tile sizes.
+distances rather than as three unrelated tile sizes. The derivation is a
+*ceiling*, not a scale: each has its own floor (§4a), and below it the layout
+shows less rather than smaller.
 
 ### Why 56px
 
@@ -161,10 +163,95 @@ reads as a rendering fault.
 | Tall-aspect phone | 1024×420 | 56px tiles (capped) |
 | Wide 21:9 | 1080×460 | 56px tiles (capped), widest pile |
 | Typical, heavy insets | 915×412, 48px sides | 49px tiles, fits |
-| Small landscape | 568×320 | 35px tiles, fits |
+| Small landscape | 568×320 | 35px tiles, fits (tier `tight`) |
+| Short/narrow landscape | 600×340 | 38px tiles, fits (tier `compact`) |
 
 Portrait is reported as portrait and routed to the menu surface rather than
 squeezed: 14 tiles in a 412px width is 25px per tile, below the readable floor.
+
+## 4a. The responsive priority policy
+
+Everything above sizes the hand. This decides what happens to the rest of the
+table when the viewport cannot pay for all of it.
+
+**Protected, in order:**
+
+1. the player's hand
+2. the current actions and claims
+3. the discard well
+4. exposed melds
+5. opponent metadata
+6. explanatory chrome
+
+**A viewport that cannot pay drops whole bands from the bottom of that list
+upwards. It does not scale everything down together.** A table where every
+element is 15% smaller is a table where nothing is readable, which is the
+failure this policy exists to prevent — and it is the failure the phone was
+actually showing.
+
+The policy is computed by `layoutPolicy()` in `game/geometry.ts` from the slack
+left once the protected band is paid for at its floor:
+
+```
+PROTECTED_W = 14 × 34 + 13 × 2 + 16      the hand at the readable floor
+PROTECTED_H = 26 + 44 + 45 + 92 + 12 + 8 status, band, hand, table top, gaps
+widthSlack  = viewportW - insets - PROTECTED_W
+heightSlack = viewportH - insets - PROTECTED_H
+```
+
+Each band is decided against the axis it actually costs — chrome is a strip
+across the felt and is paid for in height; the seat rails stand beside the
+discard well and are paid for in width. One blended number would drop a rail on
+a tall phone that had width to spare.
+
+| Band | Collapses at | What goes | What stays |
+|---|---|---|---|
+| Explanatory chrome | `heightSlack < 112` | The Explain banner, which is pinned over the felt | The concept is *not* marked seen — it is owed, and fires on the next screen with room for it |
+| Opponent metadata | `widthSlack < 96` | Score readout, bonus-tile count | Wind, seat position, turn marker, concealed count |
+| Exposed melds | `widthSlack < 24` | The melds as *drawn tiles* | A named count, and the width goes to the discard well |
+
+The number of collapsed bands names the tier — `full`, `compact`, `tight` —
+which is published on `.app[data-tier]`, read by the stylesheet, asserted by the
+rendered QA sweep and reported by the layout HUD (§4b).
+
+**Floors that stop the uniform shrink.** The discard tile floors at 22px, the
+meld tile at 16px, the opponent tile at 14px. When the hand tightens the well
+now shows *fewer* discards at a size still worth reading, rather than the same
+number at a size that is not. The assist hint is deliberately *not* treated as
+chrome: it lives in the claim band's unconditionally reserved space, so
+suppressing it would buy no pixels and only take an aid away from the player who
+switched it on.
+
+## 4b. Layout diagnostics: `?layoutdebug=1`
+
+A HUD, off unless the parameter is present, showing three kinds of number side
+by side — because a responsive bug is almost always a disagreement between two
+of them:
+
+- **what the phone reports** — viewport, visual viewport, safe-area insets, DPR;
+- **what the geometry engine decided** — tile sizes, tier and policy flags,
+  slack, the breached minimums it could not pay;
+- **what the browser actually drew** — measured rectangles for `.app`, `.coach`,
+  `.table`, `.tabletop`, `.well`, the pile, the claim band, the hand row, one
+  slot and the Peek panel, plus page overflow.
+
+A tile computed at 40px and drawn at 24px is a stylesheet bug; a tile computed
+at 24px is a geometry bug; a viewport 60px shorter than the screen is a
+browser-chrome bug. Reading one of those three alone cannot tell them apart.
+
+It **ships in the production bundle on purpose.** Gating it on `import.meta.env`
+would confine it to dev builds, which is the one place it is least needed: the
+phone runs the deployed PWA, and the whole point is to answer a responsive
+question by reading a real device rather than by shipping another build. It is
+instead gated on a query parameter nothing in the interface links to, read once
+at startup and never written to storage — a normal launch cannot reach it, and a
+link cannot leave it switched on. The rendered QA sweep asserts both halves: it
+is there with the parameter and absent without it.
+
+It is an instrument, not a surface: monospace, unstyled controls, a flat plate,
+above every overlay including the result sheet, movable to either corner and
+collapsible to one line — on a 320px-tall phone anything pinned over the felt is
+in the way of the thing being diagnosed.
 
 ## 5. Safe areas
 
@@ -1012,30 +1099,71 @@ carrying opponents' tiles for a caller to pass along by mistake.
 The production `SeatCard` is likewise left incapable of showing a hand. §11
 decided that an opponent is a *count*, and putting an escape hatch into that
 component would make the table's most sensitive rule a matter of which prop a
-caller happened to pass. Learn to Play draws its own `OpenSeat` instead.
+caller happened to pass. Learn to Play draws its own `OpenSeat` instead — and
+`OpenSeat` is only ever rendered inside the Peek overlay (below), never on the
+table.
+
+**Peek: the open hands live on their own surface.** They used to be face up in
+the seat rails for the whole lesson. On a real phone that is 13-16px per tile —
+a picture of a tile rather than a tile — so the thing the lesson exists to show
+could not be read, and it was spending the felt the discard well and the coach
+strip needed. Trying to keep every piece of information permanently visible was
+what made the table unreadable.
+
+So the lesson's table is now the production table, seat for seat, showing the
+same compact seat summaries and public state a real game shows, and the open
+hands moved behind one control:
+
+- **`Peek hands`** sits with the lesson's own controls in the coach strip — it
+  is a thing to read, not a move, and the felt has no room for a floating
+  button over the discard well.
+- It opens a central overlay drawing all three revealed hands at
+  `--peek-tile-w`, sized by the geometry engine for **fourteen** slots (the seat
+  to play has already drawn) and floored at the same 34px the hand is. On the
+  568×320 class that is 34px against the rails' old 14px.
+- **The control does not exist where the lesson reveals nothing.** `openHands`
+  is empty for lesson 5 and the guided hand, so there is no button to press and
+  no state in the view that could produce one. The absence is the guarantee.
+- **The lesson holds still while it is open.** `TutorialRunner.setPaused()`
+  cancels the pending opponent move and re-enters the pump on resume. It is
+  pacing only: no engine state is saved, copied or restored, so the position the
+  player reads is the position that is still there when they close it. An
+  opponent moving behind the overlay would change the hands they came to read,
+  and would do it out of sight.
+- **Every exit works**: the close control, a tap on the felt around the panel,
+  Escape, and the Android back button — Peek pushes one history entry while open
+  and pops it on any other close, so back never has to be pressed twice.
+- Focus moves in on open, is trapped while it is up, and returns to whatever
+  opened it on close (§16). Motion follows `prefers-reduced-motion` through the
+  same `.overlay` rules the result sheet uses.
+- The panel carries one sentence that keeps Peek from teaching the wrong lesson:
+  *a real game never shows you these*.
 
 ### Layout
 
 The lesson is the production table with the coach strip in place of the status
-readout, reusing `PlayerHand`, `ClaimBand` and `DiscardWell` unchanged — so
-what the player learns to tap is the thing they will be tapping five minutes
-later. The coach is a strip and not a panel: the tiles a sentence is about have
-to be visible while it is read, and a panel over the table would be a slideshow
-with extra steps.
+readout, reusing `SeatCard`, `PlayerHand`, `ClaimBand` and `DiscardWell`
+unchanged — so what the player learns to tap is the thing they will be tapping
+five minutes later, and the seats read exactly as they will at a real table. The
+coach is a strip and not a panel: the tiles a sentence is about have to be
+visible while it is read, and a panel over the table would be a slideshow with
+extra steps.
 
-Two things differ from §3's composition, both forced by the one thing a lesson
-does that the table never does:
+The lesson's table top is now §3's composition exactly. It used to break the
+across seat onto its own full-width row to fit thirteen face-up tiles on one
+line; with the open hands behind Peek there is nothing left to break it for, and
+the width goes back to the discard well. The tutorial obeys the same responsive
+priority policy and publishes the same `data-tier` as the table (§4a).
 
-- **The across seat is its own full-width row.** Thirteen face-up tiles need the
-  whole width to stay on one line; nested in the centre column they wrapped to
-  four rows on a 320px-tall phone and pushed the well down into the hand.
+One thing still differs:
+
 - **Portrait is a supported way to take a lesson.** The table proper sends
   portrait to the menu because fourteen tiles cannot be seated readably across
   a phone's short edge (§4). A lesson holds the same fourteen — so portrait
-  wraps the hand onto two rows at a readable width and drops the side seats to
-  their counts, rather than shrinking below the 34px floor to keep one row. The
-  override is applied to the hand row, not to `.app`, so the geometry's own
-  computed values and everything derived from them are untouched.
+  wraps the hand onto two rows at a readable width, rather than shrinking below
+  the 34px floor to keep one row. The override is applied to the hand row, not
+  to `.app`, so the geometry's own computed values and everything derived from
+  them are untouched.
 
 Nothing in `app/src/styles/tutorial.css` touches a rule the responsive geometry
 rests on: the 44px band, the hand's reserve and the 26px strip are unchanged,
@@ -1062,7 +1190,8 @@ player may reach a table.
   reading a rules document.
 - Every tutorial decision executes as a legal production engine transition.
 - Opponent hands can be opened for teaching without weakening the redaction
-  guarantee or what any bot can see.
+  guarantee or what any bot can see, and they are only ever drawn on the Peek
+  overlay, in a lesson that has declared the seats it reveals.
 - The final hand is a real engine-driven match against the existing bots, and
   the player makes its decisions.
 - Progress persists, lessons replay, and Beginner and Standard are told apart

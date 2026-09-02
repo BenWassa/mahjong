@@ -6,6 +6,7 @@ import { tileName } from "../game/labels";
 import { LearnFinish, LearnMenu } from "./LearnMenu";
 import { LESSONS, lessonById } from "./lessons";
 import { OpenSeat } from "./OpenSeat";
+import { PeekHands } from "./PeekHands";
 import { TutorialCoach } from "./TutorialCoach";
 import { TutorialRunner, TUTORIAL_SEAT } from "./runner";
 
@@ -51,15 +52,12 @@ describe("the coach strip", () => {
   });
 });
 
-describe("an opponent shown face up", () => {
+describe("an opponent shown face up, inside Peek", () => {
   const player = snapshot.view.players[1];
   const open = snapshot.openHands.get(1) ?? [];
 
   const shown = renderToStaticMarkup(
     <OpenSeat player={player} position="right" active={false} open={open} />,
-  );
-  const hidden = renderToStaticMarkup(
-    <OpenSeat player={player} position="right" active={false} open={null} />,
   );
 
   it("says in its name that the hand is being shown for teaching", () => {
@@ -73,15 +71,69 @@ describe("an opponent shown face up", () => {
     }
   });
 
-  it("falls back to the table's own count when the lesson reveals nothing", () => {
-    expect(hidden).toContain("tiles in hand");
-    expect(hidden).not.toContain("shown for teaching");
-    expect(hidden).toContain(`>${String(player.concealedCount)}<`);
+  it("marks the seat to play with more than a colour", () => {
+    const active = renderToStaticMarkup(
+      <OpenSeat player={player} position="right" active open={open} />,
+    );
+    expect(active).toContain('data-active="true"');
+    expect(active).toContain("to play");
+  });
+});
+
+describe("the Peek overlay", () => {
+  const markup = renderToStaticMarkup(
+    <PeekHands view={snapshot.view} openHands={snapshot.openHands} onClose={() => undefined} />,
+  );
+
+  it("is a real modal, not a panel that happens to sit on top", () => {
+    expect(markup).toContain('role="dialog"');
+    expect(markup).toContain('aria-modal="true"');
   });
 
-  it("marks whether it is open in the DOM, not only in the paint", () => {
-    expect(shown).toContain('data-open="true"');
-    expect(hidden).toContain('data-open="false"');
+  it("draws a panel for every seat the lesson reveals, and no others", () => {
+    expect(snapshot.openHands.size).toBe(3);
+    expect(markup.split("shown for teaching").length - 1).toBe(3);
+  });
+
+  it("says why these hands are visible, so the lesson is not misread", () => {
+    expect(markup).toContain("A real game never");
+  });
+
+  it("keeps a way out on the screen as well as on the keyboard", () => {
+    expect(markup).toContain(">Close</button>");
+  });
+});
+
+describe("the Peek control", () => {
+  it("is absent for a lesson that reveals nothing", () => {
+    // The last lesson and the guided hand play with the hidden information a
+    // real table has. There is no control, so there is nothing to press.
+    const closed = new TutorialRunner({
+      lesson: lessonById("win"),
+      schedule: () => () => undefined,
+    });
+    expect(closed.snapshot().openHands.size).toBe(0);
+    const markup = renderToStaticMarkup(
+      <TutorialCoach
+        snapshot={closed.snapshot()}
+        onAdvance={() => undefined}
+        onQuit={() => undefined}
+        onPeek={null}
+      />,
+    );
+    expect(markup).not.toContain("Peek hands");
+  });
+
+  it("is offered by the coach strip for a lesson that does reveal hands", () => {
+    const markup = renderToStaticMarkup(
+      <TutorialCoach
+        snapshot={snapshot}
+        onAdvance={() => undefined}
+        onQuit={() => undefined}
+        onPeek={() => undefined}
+      />,
+    );
+    expect(markup).toContain(">Peek hands</button>");
   });
 });
 
