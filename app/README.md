@@ -25,6 +25,16 @@ npm run phone          # same, bound to 0.0.0.0 for a phone on the LAN
 Turn the phone sideways. Portrait is the menu surface, not a squeezed table:
 fourteen tiles in a 412px width is 25px per tile, well below what can be read.
 
+### Diagnosing layout on a real phone
+
+Append `?layoutdebug=1` to any table or lesson URL — the LAN dev server, or the
+deployed PWA — for the layout HUD: the viewport and safe-area insets the app was
+actually given, the tile sizes and responsive tier the geometry engine decided
+from them, the rectangles the browser actually drew, and any breached minimum.
+It ships in the production bundle on purpose, because the phone runs the
+deployed build; nothing in the interface links to it, and it is never persisted.
+See [`docs/DESIGN.md`](../docs/DESIGN.md) §4b.
+
 ## Checks
 
 ```sh
@@ -41,11 +51,12 @@ npm run qa:a11y        # contrast on painted colours, semantics, focus, state si
 npm run qa:all         # all three
 ```
 
-`npm run qa` walks the real UI across six Android landscape classes, captures
+`npm run qa` walks the real UI across seven Android landscape classes, captures
 every gameplay state it reaches, and fails on horizontal overflow, a hand that
 leaves the viewport, a tile below the readable floor, a hit target under 44px,
-or a claim control covering a tile the decision depends on. Screenshots and a
-findings report land in `qa-out/`.
+a claim control covering a tile the decision depends on, an opponent's concealed
+hand drawn anywhere but the Peek overlay, or a layout HUD that is present
+without its parameter. Screenshots and a findings report land in `qa-out/`.
 
 ## The tile specimen sheet
 

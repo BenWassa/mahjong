@@ -77,6 +77,11 @@ export interface TutorialSnapshot {
   readonly stepSatisfied: boolean;
   /** The opponent the lesson is waiting on, so the coach can say so. */
   readonly waitingOn: Seat | null;
+  /**
+   * True while the lesson is deliberately held still — Peek is open over the
+   * table. The engine state is untouched; only the pacing is stopped.
+   */
+  readonly paused: boolean;
   readonly finished: boolean;
 }
 
@@ -109,6 +114,7 @@ export class TutorialRunner {
   #feedback: TutorialFeedback | null = null;
   #satisfied = false;
   #finished = false;
+  #paused = false;
   #script: readonly ScriptedDiscard[];
   #cancel: (() => void) | null = null;
 
@@ -144,8 +150,34 @@ export class TutorialRunner {
       feedback: this.#feedback,
       stepSatisfied: this.#satisfied,
       waitingOn: this.#cancel === null ? null : this.#pendingOpponent(),
+      paused: this.#paused,
       finished: this.#finished,
     };
+  }
+
+  /**
+   * Holds the lesson still, or lets it go again.
+   *
+   * Peek opens a reading surface over the table, and an opponent moving
+   * behind it would change the hands the player came here to read — worse, it
+   * would do so silently, because the seat rails are underneath the overlay.
+   * So the pacing stops and the position the player is looking at is the
+   * position that is still there when they close it.
+   *
+   * This is pacing only. No engine state is saved, copied or restored: the
+   * pending timer is cancelled and the pump is re-entered on resume, which
+   * re-derives what is owed from the same game it was already holding.
+   */
+  public setPaused(paused: boolean): void {
+    if (this.#paused === paused) return;
+    this.#paused = paused;
+    if (paused) {
+      this.#cancel?.();
+      this.#cancel = null;
+    } else {
+      this.#pump();
+    }
+    this.#emit();
   }
 
   public subscribe(listener: Listener): () => void {
@@ -295,7 +327,7 @@ export class TutorialRunner {
   #pump(): void {
     this.#cancel?.();
     this.#cancel = null;
-    if (this.#finished) return;
+    if (this.#finished || this.#paused) return;
 
     const step = this.#currentStep();
     const view = this.#game.state(TUTORIAL_SEAT);

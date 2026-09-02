@@ -15,6 +15,7 @@ import {
   type HandInteraction,
 } from "../game/interaction";
 import { seatPosition, seatPositionName } from "../game/labels";
+import { isLayoutDebugEnabled } from "../game/layoutDebug";
 import type { TableMode } from "../game/modes";
 import { newMatchSeed } from "../game/seed";
 import type { SessionSnapshot } from "../game/session";
@@ -24,12 +25,16 @@ import type { CornerLabelMode } from "../tiles/Tile";
 import { ClaimBand } from "./ClaimBand";
 import { DiscardWell } from "./DiscardWell";
 import { ExplainBanner } from "./ExplainBanner";
+import { LayoutDebug } from "./LayoutDebug";
 import { PlayerHand } from "./PlayerHand";
 import { ResultOverlay } from "./ResultOverlay";
 import { SeatCard } from "./SeatCard";
 import { StatusStrip } from "./StatusStrip";
 
 const OPPONENT_SEATS: readonly Seat[] = [1, 2, 3];
+
+/** Read once at module load: a link cannot switch the HUD on mid-session. */
+const LAYOUT_DEBUG = isLayoutDebugEnabled();
 
 export function TableView({
   session,
@@ -71,6 +76,7 @@ export function TableView({
   const geometry = useTableGeometry(
     self.melds.filter((meld) => meld.exposure === "exposed").length,
   );
+  const { policy } = geometry;
 
   const [interaction, setInteraction] = useState<HandInteraction>(initialInteraction);
 
@@ -164,7 +170,7 @@ export function TableView({
   // The guided hand opens on its own note rather than waiting for a concept to
   // fire, because the thing it has to say is true before anybody has moved.
   const [activeConcept, setActiveConcept] = useState<ConceptId | null>(
-    guided && explainOn ? "guided-hand" : null,
+    guided && explainOn && policy.showChrome ? "guided-hand" : null,
   );
   useEffect(() => {
     const previous = previousSnapshotRef.current;
@@ -176,7 +182,11 @@ export function TableView({
       setActiveConcept(null);
       return;
     }
-    if (!explainOn) return;
+    // Chrome has collapsed: the banner is pinned over the felt, and on a table
+    // top this short it covers the discard well it is annotating. The concept
+    // is deliberately *not* marked seen — it is owed, not spent, and it fires
+    // on the next screen with room for it.
+    if (!explainOn || !policy.showChrome) return;
     if (activeConcept === "guided-hand" && !learning.has("guided-hand")) {
       learning.markSeen("guided-hand");
       return;
@@ -187,7 +197,16 @@ export function TableView({
       learning.markSeen(next);
       setActiveConcept(next);
     }
-  }, [snapshot, explainOn, belowMinimumFaanWin, learning, endedPhase, claimsReduced, activeConcept]);
+  }, [
+    snapshot,
+    explainOn,
+    belowMinimumFaanWin,
+    learning,
+    endedPhase,
+    claimsReduced,
+    activeConcept,
+    policy.showChrome,
+  ]);
 
   // The three explain notes anchored to the result sheet fire at most once
   // each. Latched to the hand they first appear on, computed during render
@@ -250,10 +269,21 @@ export function TableView({
     ) : null;
 
   return (
-    <div className="app" data-beginner={beginner} style={geometryVariables(geometry)}>
+    <div
+      className="app"
+      data-beginner={beginner}
+      /*
+       * The active responsive state, in the DOM rather than only in the paint.
+       * The stylesheet reads it to tighten spacing, the rendered QA sweep reads
+       * it to know which composition it is asserting, and `?layoutdebug=1`
+       * reports it on a real phone.
+       */
+      data-tier={policy.tier}
+      style={geometryVariables(geometry)}
+    >
       <StatusStrip view={view} />
 
-      {activeConcept !== null && (
+      {activeConcept !== null && policy.showChrome && (
         <ExplainBanner
           concept={activeConcept}
           dwellMs={activeConcept === "guided-hand" ? 14000 : beginner ? 11000 : 7000}
@@ -267,6 +297,8 @@ export function TableView({
             player={view.players[seatFor("left")]}
             position="left"
             active={view.currentSeat === seatFor("left")}
+            showMeta={policy.showSeatMeta}
+            showMelds={policy.showSeatMelds}
           />
 
           <div className="tabletop__centre">
@@ -274,6 +306,8 @@ export function TableView({
               player={view.players[seatFor("across")]}
               position="across"
               active={view.currentSeat === seatFor("across")}
+              showMeta={policy.showSeatMeta}
+              showMelds={policy.showSeatMelds}
             />
             <DiscardWell
               discards={view.discards}
@@ -289,6 +323,8 @@ export function TableView({
             player={view.players[seatFor("right")]}
             position="right"
             active={view.currentSeat === seatFor("right")}
+            showMeta={policy.showSeatMeta}
+            showMelds={policy.showSeatMelds}
           />
         </div>
 
@@ -322,6 +358,8 @@ export function TableView({
           explainExhaustiveDraw={resultExplainRef.current.exhaustiveDraw}
         />
       )}
+
+      {LAYOUT_DEBUG && <LayoutDebug geometry={geometry} />}
     </div>
   );
 }

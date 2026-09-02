@@ -5,9 +5,10 @@
  * again, and the lesson itself, which is the production table with the coach
  * strip in place of the status readout.
  *
- * The lesson reuses .app, .table, .tabletop, .claimband and .hand unchanged.
- * Everything here either adds the coach, or adjusts the seats for the one
- * thing a lesson does that the table never does: show an opponent's hand.
+ * The lesson reuses .app, .table, .tabletop, .seat, .claimband and .hand
+ * unchanged — the tutorial's table *is* the production table now. Everything
+ * here either adds the coach strip, or draws Peek: the overlay holding the one
+ * thing a lesson does that the table never does, an opponent's hand face up.
  * Nothing in this file touches a rule the responsive geometry rests on — the
  * 44px band and the hand's own reserve are untouched — so §4's verified matrix
  * still holds for the table proper.
@@ -56,14 +57,31 @@
 
 /* Pushed to the end, away from Next: leaving and continuing are opposite
  * intentions and must not sit under the same thumb. */
+.coach__peek,
 .coach__quit {
-  margin-inline-start: auto;
   min-height: var(--touch-min);
   padding: 0 var(--space-4);
   font-size: var(--text-sm);
   letter-spacing: normal;
   text-transform: none;
   color: var(--text-tertiary);
+}
+
+/* Peek carries the group to the end of the strip; Leave follows it, so the
+ * two never swap places when a lesson without open hands drops Peek. */
+.coach__peek {
+  margin-inline-start: auto;
+  color: var(--text-secondary);
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--radius-control);
+}
+
+.coach__quit {
+  margin-inline-start: 0;
+}
+
+.coach__head:not(:has(.coach__peek)) .coach__quit {
+  margin-inline-start: auto;
 }
 
 .coach__body {
@@ -127,75 +145,142 @@
   transform: scale(0.98);
 }
 
-/* ------------------------------------------------------------ open seat --- */
+/* ----------------------------------------------------------------- peek --- */
 
 /*
- * An opponent playing with their hand face up.
+ * Peek: the lesson's open hands, on a surface that can afford them.
  *
- * The tiles are drawn at the same opponent size the exposed melds already use,
- * and the row wraps rather than scrolls: a lesson's whole point is that the
- * hand is visible, and a hand that has to be scrolled to is not.
+ * Learn to Play used to keep three face-up hands in the seat rails for the
+ * whole lesson. On a phone that is 13-16px per tile — a picture of a tile
+ * rather than a tile — and it spent the felt the discard well and the coach
+ * strip needed. The hands moved here; the table went back to the compact seat
+ * summaries a real game shows.
+ *
+ * It reuses `.overlay`, so the backdrop, the z-order above the Explain banner
+ * and the reduced-motion handling are the ones the result sheet already has
+ * (§16). Only the panel is new.
+ */
+.peek__panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  width: min(920px, 100%);
+  max-height: 100%;
+  /* A reading surface may scroll; the table beneath it never may. On a narrow
+   * phone the hands wrap rather than shrink, and wrapping can outrun the
+   * viewport. */
+  overflow-y: auto;
+  padding: var(--space-5) var(--space-6);
+  border-radius: var(--radius-surface);
+  background: var(--surface-overlay);
+  box-shadow: var(--shadow-overlay);
+  animation: sheet-in var(--dur-overlay) var(--ease-out);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .peek__panel { animation: overlay-in var(--dur-overlay) var(--ease-out); }
+}
+
+.peek__head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0 var(--space-5);
+}
+
+.peek__headline {
+  margin: 0;
+  font-size: var(--text-md);
+  font-weight: var(--weight-medium);
+  color: var(--text-primary);
+}
+
+/* The one sentence that keeps Peek from teaching the wrong lesson: these hands
+ * are visible because this lesson chose to show them, not because mahjong
+ * works that way. */
+.peek__note {
+  grid-column: 1;
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-sm);
+  color: var(--text-tertiary);
+}
+
+.peek__close {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  min-height: var(--touch-min);
+  min-width: 88px;
+  padding: 0 var(--space-5);
+  font-size: var(--text-md);
+  font-weight: var(--weight-medium);
+  color: var(--text-on-brass);
+  background: var(--brass);
+  border-radius: var(--radius-control);
+  box-shadow: var(--shadow-rest);
+  transition: transform var(--dur-press) var(--ease-out);
+}
+
+.peek__close:active {
+  transform: scale(0.98);
+}
+
+.peek__seats {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+/*
+ * One opponent's panel. A brass rule down the start edge marks the seat that
+ * is to play — a rule has a shape, so the signal survives without colour
+ * vision, and it is the same device the table's own seats use (§7).
+ */
+.openseat {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-inline-start: var(--space-4);
+  border-inline-start: 2px solid transparent;
+}
+
+.openseat[data-active="true"] {
+  border-inline-start-color: var(--brass);
+}
+
+.openseat__head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-4);
+}
+
+.openseat__turn {
+  font-size: var(--text-xs);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--brass);
+}
+
+/*
+ * The hand itself, at the size the geometry engine reserved for this surface.
+ * It wraps rather than scrolls: the whole point of Peek is that the hand is
+ * visible, and a hand that has to be scrolled sideways is not.
  */
 .openseat__hand {
   display: flex;
   flex-wrap: wrap;
-  gap: 1px;
+  gap: 2px;
   max-width: 100%;
 }
 
 .openseat__hand .tile {
-  width: var(--opp-tile-w);
-  height: auto;
+  width: var(--peek-tile-w);
+  height: calc(var(--peek-tile-w) * var(--tile-aspect));
 }
 
-/*
- * The lesson's table top: the across seat on a row of its own, then the two
- * side seats around the well.
- *
- * Thirteen face-up tiles need the width of the whole table to stay on one
- * line. Nested inside the centre column, as the table proper nests the across
- * seat, they wrapped to four rows on a short landscape phone and pushed the
- * well down into the hand.
- */
-.tutorial .tabletop {
-  grid-template-areas:
-    "across across across"
-    "left   centre  right";
-  grid-template-rows: auto minmax(0, 1fr);
-  gap: var(--space-3) var(--space-4);
-}
-
-.tutorial .seat--across { grid-area: across; }
-.tutorial .seat--left { grid-area: left; }
-.tutorial .seat--right { grid-area: right; }
-.tutorial .tabletop__centre { grid-area: centre; }
-
-/* The across seat is the full width of the table, so its label sits beside
- * its hand rather than above it. */
-.tutorial .seat--across[data-open="true"] {
-  flex-direction: row;
-  align-items: center;
-  gap: var(--space-5);
-  max-width: 100%;
-}
-
-/*
- * The side seats take what the felt can spare. Capped in vw rather than in
- * pixels so a narrow phone gives them less rather than stealing the width the
- * well needs; anything past the cap wraps onto a second row.
- */
-.tutorial .seat--left[data-open="true"],
-.tutorial .seat--right[data-open="true"] {
-  max-width: 32vw;
-}
-
-/*
- * Smaller than the table's own opponent tile. These are read, not acted on,
- * and thirteen of them per seat is four times what an exposed meld ever asks
- * for at the same width.
- */
-.tutorial .openseat__hand .tile {
-  width: min(var(--opp-tile-w), 16px);
+.openseat__melds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
 }
 
 /*
@@ -232,6 +317,33 @@
  * A short landscape phone (the 320px-tall class) gives the coach less room.
  * The instruction still reads at 13px; what goes is the padding around it.
  */
+/*
+ * A short landscape phone. Peek's tiles are the one thing on this surface that
+ * may not shrink — they are the whole reason it exists — so the chrome around
+ * them gives up its padding instead, which is enough to seat all three hands on
+ * a 320px-tall screen without scrolling. The note stays: "a real game never
+ * shows you these" is the sentence that keeps Peek from teaching the wrong
+ * lesson, and it is not chrome.
+ */
+@media (orientation: landscape) and (max-height: 400px) {
+  .peek__panel {
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+  }
+
+  .peek__note {
+    font-size: var(--text-xs);
+  }
+
+  .peek__seats {
+    gap: var(--space-3);
+  }
+
+  .openseat {
+    gap: 2px;
+  }
+}
+
 @media (orientation: landscape) and (max-height: 380px) {
   .coach {
     padding: var(--space-2) var(--space-5);
@@ -241,10 +353,6 @@
   .coach__head {
     font-size: 0.5625rem;
   }
-
-  .tutorial .openseat__hand .tile {
-    width: min(var(--opp-tile-w), 13px);
-  }
 }
 
 /* ----------------------------------------------------------- portrait ---- */
@@ -253,26 +361,16 @@
  * The table proper asks for landscape, because fourteen tiles have to be
  * simultaneously readable and portrait cannot seat them at a size worth
  * reading (§4). A lesson holds the same fourteen — so rather than pretend they
- * fit, portrait wraps the hand onto two rows and drops the open seats to a
- * count. It is a worse way to take a lesson than landscape, and the coach says
- * so; it is not a broken one.
+ * fit, portrait wraps the hand onto two rows. It is a worse way to take a
+ * lesson than landscape; it is not a broken one.
+ *
+ * The seats need no portrait rule of their own any more. They are the table's
+ * own compact summaries now rather than three face-up hands, so they fit the
+ * short edge the way they fit the long one, and the hands they used to carry
+ * are on the Peek overlay, which owns the whole viewport in either
+ * orientation.
  */
 @media (orientation: portrait) {
-  .tutorial .tabletop {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-areas:
-      "across"
-      "centre";
-  }
-
-  /* Portrait cannot seat three open hands beside a well. The across seat
-   * keeps its tiles, because it is the one the player is looking at; the two
-   * side seats fall back to the count the table itself shows. */
-  .tutorial .seat--left,
-  .tutorial .seat--right {
-    display: none;
-  }
-
   /*
    * The hand wraps onto two rows rather than shrinking to fit one.
    *
@@ -448,6 +546,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .coach__go:active,
+  .peek__close:active,
   .learn__lesson:active {
     transform: none;
   }

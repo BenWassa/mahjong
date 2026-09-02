@@ -252,3 +252,96 @@ describe("scenario games stay out of the resumable-game slot", () => {
     expect(window.localStorage.length).toBe(0);
   });
 });
+
+describe("holding the lesson still for Peek", () => {
+  /**
+   * A clock that reports whether the runner is currently waiting on a timer,
+   * rather than draining it. Peek's whole promise is that nothing moves while
+   * it is open, and the way to assert that is that no move is even scheduled.
+   */
+  function createPausableClock(): {
+    schedule: (run: () => void, ms: number) => () => void;
+    pending: () => number;
+    tick: () => void;
+  } {
+    let queue: (() => void)[] = [];
+    return {
+      schedule(run) {
+        queue.push(run);
+        return () => { queue = queue.filter((entry) => entry !== run); };
+      },
+      pending: () => queue.length,
+      tick() {
+        const next = queue.shift();
+        next?.();
+      },
+    };
+  }
+
+  it("cancels the opponent move that was already in flight", () => {
+    const clock = createPausableClock();
+    const runner = new TutorialRunner({
+      lesson: lessonById("claims"),
+      schedule: clock.schedule,
+    });
+    expect(clock.pending()).toBeGreaterThan(0);
+
+    runner.setPaused(true);
+    expect(runner.snapshot().paused).toBe(true);
+    expect(clock.pending()).toBe(0);
+  });
+
+  it("changes nothing about the position it is holding", () => {
+    const clock = createPausableClock();
+    const runner = new TutorialRunner({
+      lesson: lessonById("claims"),
+      schedule: clock.schedule,
+    });
+    const before = runner.snapshot();
+
+    runner.setPaused(true);
+    const during = runner.snapshot();
+
+    // The engine state, the step and the revealed hands are all identical:
+    // pausing is pacing, not a save and restore of anything.
+    expect(during.stepIndex).toBe(before.stepIndex);
+    expect(during.view.discards).toEqual(before.view.discards);
+    expect(during.view.players[TUTORIAL_SEAT].concealed).toEqual(
+      before.view.players[TUTORIAL_SEAT].concealed,
+    );
+    for (const [seat, tiles] of before.openHands) {
+      expect(during.openHands.get(seat)).toEqual(tiles);
+    }
+  });
+
+  it("picks the table back up where it left it", () => {
+    const clock = createPausableClock();
+    const runner = new TutorialRunner({
+      lesson: lessonById("claims"),
+      schedule: clock.schedule,
+    });
+    const discardsBefore = runner.snapshot().view.discards.length;
+
+    runner.setPaused(true);
+    expect(clock.pending()).toBe(0);
+    runner.setPaused(false);
+    expect(runner.snapshot().paused).toBe(false);
+    expect(clock.pending()).toBe(1);
+
+    clock.tick();
+    expect(runner.snapshot().view.discards.length).toBeGreaterThanOrEqual(discardsBefore);
+  });
+
+  it("is idempotent, so a double close cannot double-schedule the table", () => {
+    const clock = createPausableClock();
+    const runner = new TutorialRunner({
+      lesson: lessonById("claims"),
+      schedule: clock.schedule,
+    });
+    runner.setPaused(true);
+    runner.setPaused(true);
+    runner.setPaused(false);
+    runner.setPaused(false);
+    expect(clock.pending()).toBe(1);
+  });
+});

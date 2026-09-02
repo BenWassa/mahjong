@@ -231,6 +231,59 @@ await page.evaluate(() => {
   const learnFocusWalk = await learnPage.evaluate(() => ({ tag: document.activeElement?.tagName ?? "" }));
   if (learnFocusWalk.tag !== "BUTTON") note(`First Tab on a lesson landed on ${learnFocusWalk.tag}, not a control`);
 
+  /*
+   * The Peek overlay. It is where the lesson's open hands now live, so it owes
+   * the result sheet's contract (§16) rather than a panel's: a real dialog,
+   * focus moved in and returned, and Escape as a way out that does not depend
+   * on finding a control.
+   */
+  await learnPage.click(".coach__peek");
+  await learnPage.waitForSelector(".peek__panel");
+
+  const peekContrast = await measureContrast(
+    learnPage,
+    ".peek__panel h2, .peek__panel p, .peek__panel button, .openseat__head span",
+  );
+  if (peekContrast.length === 0) note("No Peek text was measured for contrast");
+  noteContrastFailures(peekContrast, " in the Peek overlay");
+  measured += peekContrast.length;
+
+  const peek = await learnPage.evaluate(() => {
+    const panel = document.querySelector(".peek__panel");
+    return {
+      role: panel?.getAttribute("role") ?? null,
+      modal: panel?.getAttribute("aria-modal") ?? null,
+      labelled: panel?.getAttribute("aria-labelledby") ?? null,
+      // The tiles are drawn as `role="img"` with a name each, so a screen
+      // reader reads a hand rather than thirteen anonymous graphics.
+      unnamedTiles: [...document.querySelectorAll(".openseat__hand .tile")].filter(
+        (node) => (node.getAttribute("aria-label") ?? "").trim() === "",
+      ).length,
+      // And each hand says, in its name, that it is open for teaching.
+      taught: [...document.querySelectorAll(".openseat__hand")].filter((node) =>
+        (node.getAttribute("aria-label") ?? "").includes("shown for teaching"),
+      ).length,
+      focusInside: document.querySelector(".peek__panel")?.contains(document.activeElement) ?? false,
+    };
+  });
+  if (peek.role !== "dialog") note(`Peek's panel role is "${peek.role ?? ""}", not "dialog"`);
+  if (peek.modal !== "true") note("Peek's panel is not marked aria-modal");
+  if (peek.labelled === null) note("Peek's panel has no aria-labelledby");
+  if (peek.unnamedTiles > 0) note(`${peek.unnamedTiles} Peek tiles have no accessible name`);
+  if (peek.taught === 0) note("No Peek hand says in its name that it is shown for teaching");
+  if (!peek.focusInside) note("Opening Peek did not move focus into the overlay");
+
+  await learnPage.keyboard.press("Escape");
+  await learnPage.waitForTimeout(200);
+  const afterEscape = await learnPage.evaluate(() => ({
+    open: document.querySelector(".peek__panel") !== null,
+    // Focus goes back where it came from, or a keyboard player is dropped at
+    // the top of a table they were reading a moment ago.
+    onPeekControl: document.activeElement?.classList.contains("coach__peek") ?? false,
+  }));
+  if (afterEscape.open) note("Escape did not close the Peek overlay");
+  if (!afterEscape.onPeekControl) note("Closing Peek did not return focus to the control that opened it");
+
   await learnPage.close();
 }
 
