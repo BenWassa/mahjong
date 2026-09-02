@@ -8,6 +8,7 @@ import "./styles/table.css";
 import "./styles/surfaces.css";
 import "./styles/learning.css";
 import "./styles/beginner.css";
+import "./styles/tutorial.css";
 
 const root = document.getElementById("root");
 if (root === null) throw new Error("Missing #root");

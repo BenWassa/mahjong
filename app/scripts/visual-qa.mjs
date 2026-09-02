@@ -93,12 +93,24 @@ async function assertGeometry(page, label, viewport) {
     const doc = document.documentElement;
     const slots = [...document.querySelectorAll(".hand__slot")];
     const rects = slots.map((node) => node.getBoundingClientRect());
-    const controls = [...document.querySelectorAll(".claim, .sheet__go, .portrait__toggle")];
+    const controls = [
+      ...document.querySelectorAll(".claim, .sheet__go, .portrait__toggle, .coach__go, .learn__lesson"),
+    ];
     const style = getComputedStyle(document.querySelector(".app") ?? doc);
     return {
       overflowX: doc.scrollWidth - doc.clientWidth,
       overflowY: doc.scrollHeight - doc.clientHeight,
-      tileW: Number.parseFloat(style.getPropertyValue("--tile-w")) || 0,
+      // Read off the rendered slots themselves rather than off the `.app`
+      // custom property: Learn to Play's portrait stylesheet re-declares
+      // --tile-w on `.handrow` on purpose, to wrap the hand onto two readable
+      // rows without disturbing every other measurement the geometry engine
+      // derives from the single-row value still sitting on `.app` (§ tutorial
+      // CSS, "portrait"). The drawn tile is truth; the custom property on the
+      // ancestor the layout happens to compute it from is not always where it
+      // ends up applied.
+      tileW: rects.length
+        ? Math.min(...rects.map((r) => r.width))
+        : Number.parseFloat(style.getPropertyValue("--tile-w")) || 0,
       handLeft: rects.length ? Math.min(...rects.map((r) => r.left)) : null,
       handRight: rects.length ? Math.max(...rects.map((r) => r.right)) : null,
       handBottom: rects.length ? Math.max(...rects.map((r) => r.bottom)) : null,
@@ -405,6 +417,133 @@ for (const viewport of matrix) {
   });
   await walk(page, { id: "reduced-motion", width: 915, height: 412, insets: null }, "qa-1", 14);
   await page.close();
+}
+
+/**
+ * Learn to Play (#30), at the same thresholds.
+ *
+ * The tutorial is a second surface built from the same table components, so
+ * the geometry rules it has to satisfy are exactly the production ones —
+ * nothing about the coach strip or the open opponent seats gets a pass. It
+ * gets its own walk rather than a mode flag on `walk()` because its state
+ * machine is different: there is no result overlay to wait out, and progress
+ * is driven by the coach's own "Next" control as much as by discarding.
+ */
+async function describeLessonState(page) {
+  return page.evaluate(() => {
+    const slots = [...document.querySelectorAll(".hand__slot")];
+    return {
+      go: document.querySelector(".coach__go") !== null,
+      enabled: slots.filter((node) => !node.hasAttribute("disabled")).length,
+      claims: document.querySelectorAll(".claim").length,
+      nonPassClaims: document.querySelectorAll(".claim:not(.claim--pass)").length,
+    };
+  });
+}
+
+/**
+ * Walks one lesson far enough to see more than its opening screen: a few
+ * coach turns, a discard or two, and a claim decision where the lesson offers
+ * one. Capped well under the length of a real hand — a lesson is a handful of
+ * scripted steps, not a full game, so twelve is already generous headroom.
+ */
+async function walkLesson(page, viewport, lessonId, steps) {
+  await page.goto(`${BASE}?learn=${lessonId}&seed=qa-learn`, { waitUntil: "domcontentloaded" });
+  await applyInsets(page, viewport.insets);
+  await page.waitForSelector(".app.tutorial", { timeout: 10000 });
+  await page.waitForSelector(".coach", { timeout: 10000 });
+  await page.waitForTimeout(250);
+  await capture(page, viewport, `learn-${lessonId}-start`);
+
+  for (let step = 0; step < steps; step += 1) {
+    const state = await describeLessonState(page);
+
+    if (state.go) {
+      await capture(page, viewport, `learn-${lessonId}-coach`);
+      await page.click(".coach__go");
+      await page.waitForTimeout(350);
+      continue;
+    }
+
+    if (state.enabled > 0) {
+      await capture(page, viewport, `learn-${lessonId}-turn`);
+      const tile = page.locator(".hand__slot:not([disabled])").first();
+      await tile.click();
+      await page.waitForTimeout(140);
+      await tile.click();
+      await page.waitForTimeout(350);
+      continue;
+    }
+
+    if (state.claims > 0) {
+      await capture(page, viewport, `learn-${lessonId}-claim`);
+      const selector = state.nonPassClaims > 0 ? ".claim:not(.claim--pass)" : ".claim--pass";
+      await page.locator(selector).first().click();
+      await page.waitForTimeout(350);
+      continue;
+    }
+
+    // Nothing is waiting on the player: the coach is pacing itself against the
+    // opponents' own moves. Those are paced at 620ms in the tutorial, slower
+    // than the table's walk, so give this a slightly longer wait than 350ms
+    // before checking again.
+    await page.waitForTimeout(700);
+  }
+
+  await capture(page, viewport, `learn-${lessonId}-end`);
+}
+
+{
+  const lessonViewports = VIEWPORTS.filter((v) => v.id === "typical-915" || v.id === "small-568");
+  const stepsPerLesson = quick ? 8 : 12;
+
+  for (const viewport of lessonViewports) {
+    const page = await browser.newPage({
+      viewport: { width: viewport.width, height: viewport.height },
+      deviceScaleFactor: 2,
+      reducedMotion: "no-preference",
+    });
+    page.on("pageerror", (error) => {
+      finding("high", "runtime", `Uncaught error: ${error.message}`, `${viewport.id}:learn`);
+    });
+    page.on("console", (message) => {
+      if (message.type() === "error") {
+        finding("high", "runtime", `Console error: ${message.text().slice(0, 160)}`, `${viewport.id}:learn`);
+      }
+    });
+
+    await page.goto(`${BASE}?learn=1&seed=qa-learn`, { waitUntil: "domcontentloaded" });
+    await page.waitForSelector(".learn", { timeout: 10000 });
+    await page.waitForTimeout(250);
+    await capture(page, viewport, "learn-menu");
+
+    for (const lessonId of ["shape", "turn", "improve", "claims", "win"]) {
+      await walkLesson(page, viewport, lessonId, stepsPerLesson);
+    }
+
+    await page.close();
+  }
+
+  // One portrait pass, on the same viewport class the production portrait
+  // capture above uses, so the coach strip is checked in the orientation the
+  // menu itself lives in as well as the table's own landscape one.
+  {
+    const page = await browser.newPage({
+      viewport: { width: 412, height: 915 },
+      deviceScaleFactor: 2,
+      reducedMotion: "no-preference",
+    });
+    page.on("pageerror", (error) => {
+      finding("high", "runtime", `Uncaught error: ${error.message}`, "learn-portrait");
+    });
+    await walkLesson(
+      page,
+      { id: "learn-portrait-412x915", width: 412, height: 915, insets: null },
+      "claims",
+      stepsPerLesson,
+    );
+    await page.close();
+  }
 }
 
 await browser.close();

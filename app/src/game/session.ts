@@ -89,6 +89,17 @@ export interface SessionOptions {
    * with what the band actually offers.
    */
   readonly reduceActions?: (actions: readonly GameAction[]) => ReducedActions;
+  /**
+   * Multiplier on the opponent pacing above, for the guided first hand out of
+   * Learn to Play (#30): a player who has just met the game needs an
+   * opponent's move to be legible rather than quick.
+   *
+   * It moves nothing but the delays between opponents' moves. No timer here
+   * ever gated one of the player's own actions and this does not change that
+   * — a slower table is still live to the player the instant they have
+   * something to do.
+   */
+  readonly pace?: number;
 }
 
 type Listener = (snapshot: SessionSnapshot) => void;
@@ -119,6 +130,7 @@ export class GameSession {
   readonly #bots: ReadonlyMap<Seat, BotController>;
   readonly #schedule: (run: () => void, ms: number) => () => void;
   readonly #reduceActions: (actions: readonly GameAction[]) => ReducedActions;
+  readonly #pace: number;
 
   public constructor(options: SessionOptions) {
     const rules = options.rules ?? DEFAULT_RULES_PROFILE;
@@ -128,6 +140,7 @@ export class GameSession {
     // whatever seed the caller happened to pass alongside it.
     const activeSeed = this.#game.gameRecord().seed;
     this.#schedule = options.schedule ?? defaultSchedule;
+    this.#pace = options.pace ?? 1;
     this.#reduceActions =
       options.reduceActions ?? ((actions) => reducePlayerActions(actions, true));
     this.#bots = new Map(
@@ -218,7 +231,7 @@ export class GameSession {
 
     const actions = playerActions(this.#game, seat);
     const isDiscard = actions.some((action) => action.type === "discard");
-    const delay = isDiscard ? BOT_DISCARD_MS : BOT_RESPONSE_MS;
+    const delay = (isDiscard ? BOT_DISCARD_MS : BOT_RESPONSE_MS) * this.#pace;
 
     this.#cancel = this.#schedule(() => {
       this.#cancel = null;
@@ -254,7 +267,7 @@ export class GameSession {
       this.#lastAction = autoPass;
       this.#pump();
       this.#emit();
-    }, AUTO_PASS_MS);
+    }, AUTO_PASS_MS * this.#pace);
     return true;
   }
 

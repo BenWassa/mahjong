@@ -20,13 +20,28 @@ export function PlayerHand({
   discardable,
   cornerLabel,
   onTapTile,
+  tapAction = "discard",
+  marked,
 }: {
   readonly tiles: readonly TileType[];
   readonly melds: readonly PublicMeld[];
   readonly selected: TileId | null;
+  /** The tiles this hand will respond to a tap on. */
   readonly discardable: ReadonlySet<TileId>;
   readonly cornerLabel: CornerLabelMode;
   readonly onTapTile: (tileId: TileId) => void;
+  /**
+   * What a tap does here.
+   *
+   * The table's own model is tap-to-lift then tap-again-to-discard (#7), and
+   * that is the default. Learn to Play's first lesson (#30) asks the player to
+   * *point* at a shape in a hand that is not going anywhere, which is one tap
+   * and no lift — and a screen reader has to be told which of the two it is,
+   * or the hand promises a discard that pointing will not deliver.
+   */
+  readonly tapAction?: "discard" | "identify";
+  /** Tiles the tutorial has lit up as the shape the player just named. */
+  readonly marked?: ReadonlySet<TileId>;
 }): JSX.Element {
   // When nothing at all is discardable the player is not choosing a discard,
   // they are reading their hand to decide a claim. Dimming every tile then
@@ -44,6 +59,7 @@ export function PlayerHand({
         {tiles.map((tile) => {
           const isSelected = selected === tile.id;
           const canDiscard = discardable.has(tile.id);
+          const isMarked = marked?.has(tile.id) ?? false;
           return (
             <button
               key={tile.id}
@@ -51,19 +67,22 @@ export function PlayerHand({
               className="hand__slot"
               data-selected={isSelected}
               data-discardable={!choosing || canDiscard}
-              aria-pressed={isSelected}
+              data-marked={isMarked}
+              aria-pressed={tapAction === "identify" ? isMarked : isSelected}
               disabled={!canDiscard}
               aria-label={
                 isSelected
                   ? `${tileName(tile.kind)}, selected. Tap again to discard.`
-                  : tileName(tile.kind)
+                  : isMarked
+                    ? `${tileName(tile.kind)}, part of the shape you named.`
+                    : tileName(tile.kind)
               }
               onClick={() => { onTapTile(tile.id); }}
             >
               <Tile
                 kind={tile.kind}
                 variant="hand"
-                state={isSelected ? "selected" : "rest"}
+                state={isSelected || isMarked ? "selected" : "rest"}
                 cornerLabel={cornerLabel}
               />
             </button>

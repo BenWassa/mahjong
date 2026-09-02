@@ -93,6 +93,28 @@ hands as terminal-state conservation cleanup without drawing further replacement
 A non-bonus tile reached through a bonus chain after a kong remains a kong-replacement
 draw for later scoring purposes.
 
+## Deterministic teaching scenarios (#30)
+
+`newScenarioGame(spec)` is the only entry point whose wall is not derived from the
+seed. A `ScenarioSpec` (`src/engine/scenario.ts`) names which tiles each seat holds
+after the deal and which tiles the wall yields next; `buildScenarioWall` turns that
+into an ordering of the same physical tile set, and `createScenarioGame` deals that
+ordering through the ordinary `buildHand`. The packet deal, bonus reveal and
+replacement, opening phase, and the conservation invariant are all the production ones,
+so a scenario hand is an ordinary engine hand that happens to know what it dealt. Every
+subsequent transition goes through `reduceGame`.
+
+`createScenarioState` re-checks the dealt hands against the spec, which is what fails
+loudly if the deal's packet arithmetic ever changes rather than silently dealing
+something else. Hands shorter than their dealt size are padded from a shuffle seeded by
+the scenario id, and a scenario may not place a bonus tile in a hand or a scripted
+draw: a flower dealt into a hand is revealed and replaced from the tail, consuming a
+tile the scenario did not account for.
+
+A scenario record is **not replayable**. `replayGame` reconstructs the wall from the
+seed, so a scenario game must never be written to a resumable-game slot; the tutorial
+keeps lesson progress instead of a record.
+
 ## Redaction
 
 `state(viewerSeat)` contains that seat's concealed tiles, all exposed melds and bonus
@@ -102,6 +124,13 @@ represented only by its existence and count; its kind and physical IDs are absen
 
 Bots in Issue #6 will receive this exact seat-scoped structure and legal-action list,
 not a privileged engine snapshot.
+
+`MahjongGame.openHandsForTutorial()` (#30) is the one other way to reach a concealed
+hand, and it is hidden information by construction and by name. It exists for the
+teaching scenarios that play with the table face up. It does not touch `state`, which
+still redacts exactly as above, and its return type — `ReadonlyMap<Seat, Tile[]>` — is
+the actual boundary: a bot consumes a `PublicGameState`, so no object shaped like a
+game state and carrying opponents' tiles is ever produced for a caller to forward.
 
 ## Invariants
 

@@ -6,13 +6,19 @@ A clean, modern Hong Kong Old Style Mahjong game for mobile. Offline-first, rule
 
 **V1 build in progress.**
 
-Rules, engine, scoring, the correctness gate and deterministic heuristic bots are complete. The mobile interaction prototype passed its real-Android landscape gate, and the production table, traditional SVG tile set and installable offline PWA are built. Learning aids, persistence and Android packaging are done.
+Rules, engine, scoring, the correctness gate and deterministic heuristic bots are complete. The mobile interaction prototype passed its real-Android landscape gate, and the production table, traditional SVG tile set and installable offline PWA are built. Learning aids, persistence, Android packaging, Beginner mode and the interactive **Learn to Play** onboarding are done.
 
 **Live PWA:** [benwassa.github.io/mahjong](https://benwassa.github.io/mahjong/) deploys `app/dist` — the real engine-backed game — from `main` on every relevant push (#26). The disposable interaction prototype in `prototype/` is historical only and is not deployed there.
 
 ## V1
 
 Single-player Hong Kong Old Style Mahjong against three heuristic bots, shipped as an installable offline PWA and a Capacitor Android app from the same React + Vite codebase. Landscape table, traditional SVG tiles, tap-tap discard, contextual learning aids, clear faan scoring, local persistence, and no backend or runtime network dependency.
+
+New players are offered **Learn to Play**: five short interactive lessons dealt
+from arranged walls through the production engine — make a hand, take a turn,
+choose a discard, claim a tile, win — then a real guided hand against the same
+bots. It teaches by changing the game state rather than by explaining it, and
+none of it is required to reach the table. See [`DESIGN.md`](docs/DESIGN.md) §25.
 
 ## Source of truth
 

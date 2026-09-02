@@ -53,6 +53,7 @@ PWA acceptance.
 | Learning | #9 — V1.8 Contextual learning, assist and rules reference | **Done** — [`DESIGN.md`](DESIGN.md) §21, `app/` |
 | Persistence | #10 — V1.9 Local persistence, resume and basic stats | **Done** — [`DESIGN.md`](DESIGN.md) §22, `app/` |
 | PWA + Android acceptance | #11 — V1.10 Verify installable PWA and package offline Android app | Capacitor packaging built — [`DESIGN.md`](DESIGN.md) §23; real-device gate open |
+| Onboarding | #30 — Beginner onboarding: interactive Learn to Play scenarios and guided first hand | **Done** — [`DESIGN.md`](DESIGN.md) §25, `src/engine/scenario.ts`, `app/src/tutorial/` |
 
 ## Non-negotiable ordering
 
@@ -83,3 +84,5 @@ Until V1 is complete, do not add multiplayer, network services, accounts, teleme
 | #10 Persistence | Complete |
 | #11 PWA + Android acceptance | Complete — Capacitor Android packaging built and CI-verified; real-device gate closed |
 | #26 Production Pages cutover | Complete — `app/dist` deploys to Pages from `main`; prototype no longer owns Pages |
+| #28 Beginner mode and table de-clutter | Complete — [`DESIGN.md`](DESIGN.md) §24 |
+| #30 Learn to Play onboarding | Complete — five interactive lessons on arranged-wall engine scenarios, then a guided real hand |

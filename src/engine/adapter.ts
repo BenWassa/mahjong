@@ -6,6 +6,7 @@ import {
 } from "./scored-core.js";
 import { isStructurallyComplete, waitingTiles } from "./learning.js";
 import { projectPublicState } from "./redaction.js";
+import { createScenarioState, type ScenarioSpec } from "./scenario.js";
 import type {
   FaanBreakdown,
   GameAction,
@@ -15,6 +16,7 @@ import type {
   PublicGameState,
   RulesProfile,
   Seat,
+  Tile,
 } from "./types.js";
 
 export class ReplayMismatchError extends Error {
@@ -85,10 +87,47 @@ export class MahjongGame {
   public isStructurallyComplete(seat: Seat = 0): boolean {
     return isStructurallyComplete(this.#internal, seat);
   }
+
+  /**
+   * TUTORIAL PRESENTATION ONLY (#30): every seat's concealed tiles, for the
+   * teaching scenarios that deliberately play with the hands face up.
+   *
+   * This is hidden information and is named so that no call site can pretend
+   * otherwise. The redaction contract is untouched: `state(viewer)` still
+   * returns exactly what that seat may observe (RULE-REDACT-1), and this
+   * method is the only other way to reach a concealed hand.
+   *
+   * Its return type is the boundary, not a convention. A bot consumes a
+   * `PublicGameState` and nothing else, so a map of tiles cannot be handed to
+   * one by mistake — there is no doctored game-state object in existence for
+   * a caller to pass along. Opening the hands therefore cannot widen what any
+   * bot, or any normal view, is able to see.
+   */
+  public openHandsForTutorial(): ReadonlyMap<Seat, readonly Tile[]> {
+    // Copied rather than handed out by reference, for the same reason
+    // `gameRecord` clones: this adapter's snapshot is immutable, and a caller
+    // holding the engine's own array could quietly stop that being true.
+    return new Map(
+      ([0, 1, 2, 3] as const).map((seat) => [seat, [...this.#internal.players[seat].concealed]]),
+    );
+  }
 }
 
 export function newGame(config: RulesProfile, seed: string): MahjongGame {
   return new MahjongGame(createInitialGame(seed, config));
+}
+
+/**
+ * A deterministic teaching scenario (#30), dealt from an arranged wall through
+ * the production deal. Every move made on it afterwards goes through the same
+ * reducer as any other game.
+ *
+ * The record it carries cannot be replayed by `replayGame`, which rebuilds the
+ * wall from the seed, so a scenario game must never be written to the
+ * resumable-game slot. The tutorial keeps its own progress instead.
+ */
+export function newScenarioGame(spec: ScenarioSpec): MahjongGame {
+  return new MahjongGame(createScenarioState(spec));
 }
 
 export function replayGame(record: GameRecord): MahjongGame {

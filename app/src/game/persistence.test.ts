@@ -1,15 +1,19 @@
 import { DEFAULT_RULES_PROFILE, newGame, type GameRecord } from "@engine";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   DEFAULT_SETTINGS,
+  DEFAULT_TUTORIAL,
   appendCompletedGame,
   clearCurrentGame,
+  clearTutorial,
   loadCompletedGames,
   loadCurrentGame,
   loadSettings,
+  loadTutorial,
   saveCurrentGame,
   saveSettings,
+  saveTutorial,
 } from "./persistence";
 
 /**
@@ -204,5 +208,105 @@ describe("completed games", () => {
     expect(result).toHaveLength(cap);
     expect(result[result.length - 1]).toEqual(newest);
     expect(result.some((record) => record.seed === "seed-0")).toBe(false);
+  });
+});
+
+describe("tutorial progress", () => {
+  it("starts every player at the beginning when nothing is stored", () => {
+    expect(loadTutorial()).toEqual({ version: 1, completed: [], finished: false });
+    expect(loadTutorial()).toEqual(DEFAULT_TUTORIAL);
+  });
+
+  it("round-trips saved progress", () => {
+    saveTutorial({ version: 1, completed: ["shape", "turn"], finished: false });
+    expect(loadTutorial()).toEqual({ version: 1, completed: ["shape", "turn"], finished: false });
+  });
+
+  it("round-trips a finished course", () => {
+    saveTutorial({
+      version: 1,
+      completed: ["shape", "turn", "improve", "claims", "win"],
+      finished: true,
+    });
+    expect(loadTutorial().finished).toBe(true);
+  });
+
+  it("falls back to the default and clears the key on malformed JSON", () => {
+    window.localStorage.setItem("mahjong:v1:tutorial", "{not json");
+    expect(loadTutorial()).toEqual(DEFAULT_TUTORIAL);
+    expect(window.localStorage.getItem("mahjong:v1:tutorial")).toBeNull();
+  });
+
+  it("falls back to the default for an incompatible version", () => {
+    window.localStorage.setItem(
+      "mahjong:v1:tutorial",
+      JSON.stringify({ version: 2, completed: ["shape"], finished: false }),
+    );
+    expect(loadTutorial()).toEqual(DEFAULT_TUTORIAL);
+    expect(window.localStorage.getItem("mahjong:v1:tutorial")).toBeNull();
+  });
+
+  it("falls back to the default when completed is not an array", () => {
+    window.localStorage.setItem(
+      "mahjong:v1:tutorial",
+      JSON.stringify({ version: 1, completed: "shape", finished: false }),
+    );
+    expect(loadTutorial()).toEqual(DEFAULT_TUTORIAL);
+  });
+
+  it("falls back to the default when finished is not a boolean", () => {
+    window.localStorage.setItem(
+      "mahjong:v1:tutorial",
+      JSON.stringify({ version: 1, completed: [], finished: "yes" }),
+    );
+    expect(loadTutorial()).toEqual(DEFAULT_TUTORIAL);
+  });
+
+  it("drops lesson ids this build no longer knows, keeping the rest", () => {
+    // A lesson renamed or retired in a later build must cost the player that
+    // one lesson, not the whole record of what they have already learned.
+    window.localStorage.setItem(
+      "mahjong:v1:tutorial",
+      JSON.stringify({
+        version: 1,
+        completed: ["shape", "flowers-and-seasons", "win", 7, null],
+        finished: false,
+      }),
+    );
+    expect(loadTutorial()).toEqual({ version: 1, completed: ["shape", "win"], finished: false });
+  });
+
+  it("collapses duplicate lesson ids", () => {
+    window.localStorage.setItem(
+      "mahjong:v1:tutorial",
+      JSON.stringify({ version: 1, completed: ["turn", "turn", "shape", "turn"], finished: false }),
+    );
+    expect(loadTutorial().completed).toEqual(["turn", "shape"]);
+  });
+
+  it("resets to the default on request", () => {
+    saveTutorial({ version: 1, completed: ["shape"], finished: true });
+    clearTutorial();
+    expect(loadTutorial()).toEqual(DEFAULT_TUTORIAL);
+  });
+
+  it("does not throw out of a save when storage refuses the write", () => {
+    // A full or disabled store costs the player their progress on the next
+    // reload; it must never interrupt the lesson they are in the middle of.
+    // Spied on the prototype rather than on `window.localStorage`: jsdom's
+    // storage object is a proxy that turns a property definition into a stored
+    // item, so patching the instance would quietly leave the real method in
+    // place and the test would prove nothing.
+    const setItem = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("quota exceeded");
+    });
+    try {
+      expect(() => {
+        saveTutorial({ version: 1, completed: ["shape"], finished: false });
+      }).not.toThrow();
+    } finally {
+      setItem.mockRestore();
+    }
+    expect(loadTutorial()).toEqual(DEFAULT_TUTORIAL);
   });
 });

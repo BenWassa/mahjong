@@ -1,0 +1,454 @@
+/*
+ * Learn to Play (#30).
+ *
+ * Two surfaces: the lesson menu, which is the mode-choice screen's layout
+ * again, and the lesson itself, which is the production table with the coach
+ * strip in place of the status readout.
+ *
+ * The lesson reuses .app, .table, .tabletop, .claimband and .hand unchanged.
+ * Everything here either adds the coach, or adjusts the seats for the one
+ * thing a lesson does that the table never does: show an opponent's hand.
+ * Nothing in this file touches a rule the responsive geometry rests on — the
+ * 44px band and the hand's own reserve are untouched — so §4's verified matrix
+ * still holds for the table proper.
+ */
+
+/* ---------------------------------------------------------------- coach --- */
+
+/*
+ * The instruction strip. It takes the place of the 26px status strip, and it
+ * is taller because it holds a sentence rather than four readouts — so the
+ * table below it gets less height than a real hand would. That is affordable
+ * here and only here: a lesson's discard pile is a handful of tiles deep, not
+ * thirty.
+ */
+.coach {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "head head"
+    "body go";
+  align-items: center;
+  gap: var(--space-2) var(--space-5);
+  padding: var(--space-3) var(--space-5);
+  background: var(--surface-rail);
+  border-bottom: 1px solid var(--hairline);
+}
+
+.coach__head {
+  grid-area: head;
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  font-size: 0.625rem;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+.coach__lesson {
+  color: var(--text-secondary);
+}
+
+.coach__steps {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Pushed to the end, away from Next: leaving and continuing are opposite
+ * intentions and must not sit under the same thumb. */
+.coach__quit {
+  margin-inline-start: auto;
+  min-height: var(--touch-min);
+  padding: 0 var(--space-4);
+  font-size: var(--text-sm);
+  letter-spacing: normal;
+  text-transform: none;
+  color: var(--text-tertiary);
+}
+
+.coach__body {
+  grid-area: body;
+  min-width: 0;
+}
+
+.coach__prompt {
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--text-primary);
+}
+
+.coach__waiting {
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-sm);
+  color: var(--text-tertiary);
+}
+
+/* The note stands where the prompt stood, so it reads at the same weight. */
+.coach__note {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+}
+
+.coach__correction {
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+
+/*
+ * A correction is marked by a brass rule down its start edge as well as by
+ * being a different colour, because state in this product is never carried by
+ * hue alone (§7). It is not red: a wrong answer in a lesson is a thing to read,
+ * not an error to recover from.
+ */
+.coach__correction {
+  padding-inline-start: var(--space-4);
+  border-inline-start: 2px solid var(--brass);
+  color: var(--text-primary);
+}
+
+.coach__go {
+  grid-area: go;
+  min-height: var(--touch-min);
+  min-width: 88px;
+  padding: 0 var(--space-6);
+  font-size: var(--text-md);
+  font-weight: var(--weight-medium);
+  color: var(--text-on-brass);
+  background: var(--brass);
+  border-radius: var(--radius-control);
+  box-shadow: var(--shadow-rest);
+  transition: transform var(--dur-press) var(--ease-out);
+}
+
+.coach__go:active {
+  transform: scale(0.98);
+}
+
+/* ------------------------------------------------------------ open seat --- */
+
+/*
+ * An opponent playing with their hand face up.
+ *
+ * The tiles are drawn at the same opponent size the exposed melds already use,
+ * and the row wraps rather than scrolls: a lesson's whole point is that the
+ * hand is visible, and a hand that has to be scrolled to is not.
+ */
+.openseat__hand {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1px;
+  max-width: 100%;
+}
+
+.openseat__hand .tile {
+  width: var(--opp-tile-w);
+  height: auto;
+}
+
+/*
+ * The lesson's table top: the across seat on a row of its own, then the two
+ * side seats around the well.
+ *
+ * Thirteen face-up tiles need the width of the whole table to stay on one
+ * line. Nested inside the centre column, as the table proper nests the across
+ * seat, they wrapped to four rows on a short landscape phone and pushed the
+ * well down into the hand.
+ */
+.tutorial .tabletop {
+  grid-template-areas:
+    "across across across"
+    "left   centre  right";
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: var(--space-3) var(--space-4);
+}
+
+.tutorial .seat--across { grid-area: across; }
+.tutorial .seat--left { grid-area: left; }
+.tutorial .seat--right { grid-area: right; }
+.tutorial .tabletop__centre { grid-area: centre; }
+
+/* The across seat is the full width of the table, so its label sits beside
+ * its hand rather than above it. */
+.tutorial .seat--across[data-open="true"] {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-5);
+  max-width: 100%;
+}
+
+/*
+ * The side seats take what the felt can spare. Capped in vw rather than in
+ * pixels so a narrow phone gives them less rather than stealing the width the
+ * well needs; anything past the cap wraps onto a second row.
+ */
+.tutorial .seat--left[data-open="true"],
+.tutorial .seat--right[data-open="true"] {
+  max-width: 32vw;
+}
+
+/*
+ * Smaller than the table's own opponent tile. These are read, not acted on,
+ * and thirteen of them per seat is four times what an exposed meld ever asks
+ * for at the same width.
+ */
+.tutorial .openseat__hand .tile {
+  width: min(var(--opp-tile-w), 16px);
+}
+
+/*
+ * The shape the player has just named.
+ *
+ * Drawn with the table's existing selected state — the same lift, the same
+ * brass underline — rather than a sixth one, because §15 defines a closed set
+ * of tile states and a lesson is not a reason to reopen it.
+ *
+ * The one difference is the underline's width. A selected tile insets its bar
+ * so it reads as one tile; a named shape runs its bar the full slot and half
+ * the gap either side, so three adjacent tiles underline as a single unbroken
+ * bar — which is the whole point of the step. That is a group, not three
+ * separate selections.
+ */
+.hand__slot[data-marked="true"] {
+  transform: translateY(-14%);
+}
+
+.hand__slot[data-marked="true"] .tile {
+  box-shadow: var(--shadow-lifted);
+}
+
+.hand__slot[data-marked="true"]::before {
+  content: "";
+  position: absolute;
+  inset-inline: calc(var(--tile-gap) / -2);
+  bottom: -5px;
+  height: 2px;
+  background: var(--state-selected);
+}
+
+/*
+ * A short landscape phone (the 320px-tall class) gives the coach less room.
+ * The instruction still reads at 13px; what goes is the padding around it.
+ */
+@media (orientation: landscape) and (max-height: 380px) {
+  .coach {
+    padding: var(--space-2) var(--space-5);
+    gap: 0 var(--space-4);
+  }
+
+  .coach__head {
+    font-size: 0.5625rem;
+  }
+
+  .tutorial .openseat__hand .tile {
+    width: min(var(--opp-tile-w), 13px);
+  }
+}
+
+/* ----------------------------------------------------------- portrait ---- */
+
+/*
+ * The table proper asks for landscape, because fourteen tiles have to be
+ * simultaneously readable and portrait cannot seat them at a size worth
+ * reading (§4). A lesson holds the same fourteen — so rather than pretend they
+ * fit, portrait wraps the hand onto two rows and drops the open seats to a
+ * count. It is a worse way to take a lesson than landscape, and the coach says
+ * so; it is not a broken one.
+ */
+@media (orientation: portrait) {
+  .tutorial .tabletop {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "across"
+      "centre";
+  }
+
+  /* Portrait cannot seat three open hands beside a well. The across seat
+   * keeps its tiles, because it is the one the player is looking at; the two
+   * side seats fall back to the count the table itself shows. */
+  .tutorial .seat--left,
+  .tutorial .seat--right {
+    display: none;
+  }
+
+  /*
+   * The hand wraps onto two rows rather than shrinking to fit one.
+   *
+   * The responsive geometry sizes the hand for a single landscape row, and in
+   * portrait that lands the tiles under the 34px floor where a face becomes
+   * guesswork (§4). Two readable rows beat one unreadable one, and portrait
+   * has the height to spend. Overriding the custom property on the hand row
+   * rather than on .app leaves the geometry's own value — and every other
+   * measurement derived from it — exactly as computed.
+   */
+  .tutorial .handrow {
+    --tile-w: clamp(38px, 11.5vw, 52px);
+    --tile-h: calc(var(--tile-w) * var(--tile-aspect));
+  }
+
+  .tutorial .hand {
+    flex-wrap: wrap;
+    justify-content: center;
+    row-gap: var(--space-3);
+  }
+}
+
+/* ----------------------------------------------------------- learn menu --- */
+
+.learn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100dvh;
+  overflow-y: auto;
+  padding:
+    max(var(--space-6), var(--safe-top))
+    max(var(--space-7), var(--safe-right))
+    max(var(--space-6), var(--safe-bottom))
+    max(var(--space-7), var(--safe-left));
+  background:
+    radial-gradient(120% 70% at 50% 0%, var(--table-felt) 0%, var(--table-felt-deep) 60%,
+      var(--table-edge) 100%);
+}
+
+.learn__column {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  width: 100%;
+  max-width: 46ch;
+  margin: auto;
+}
+
+.learn__title {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: 0;
+  font-size: var(--text-lg);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-tight);
+}
+
+.learn__han {
+  font-family: var(--font-han);
+  font-size: 2.25rem;
+  line-height: 1;
+  color: var(--brass);
+}
+
+.learn__note {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+
+.learn__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.learn__lesson {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  width: 100%;
+  min-height: var(--touch-min);
+  padding: var(--space-4) var(--space-5);
+  text-align: start;
+  border-radius: var(--radius-control);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-rest);
+  transition: transform var(--dur-press) var(--ease-out);
+}
+
+.learn__lesson:active {
+  transform: scale(0.99);
+}
+
+/* A finished lesson is marked by a tick replacing its number, not by a colour
+ * change: the number and the tick are the same slot, and one of them is a
+ * shape. */
+.learn__index {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 26px;
+  height: 26px;
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+  border: 1px solid var(--hairline-strong);
+  border-radius: 50%;
+}
+
+.learn__lesson[data-done="true"] .learn__index {
+  color: var(--text-on-brass);
+  background: var(--brass);
+  border-color: var(--brass);
+}
+
+.learn__text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.learn__lessontitle {
+  font-size: var(--text-md);
+  font-weight: var(--weight-medium);
+  color: var(--text-primary);
+}
+
+.learn__summary {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+
+.learn__skip {
+  min-height: var(--touch-min);
+  padding: 0 var(--space-5);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--radius-control);
+}
+
+/* --------------------------------------------------------- choice extras -- */
+
+/* The recommended door on the first-launch question, ringed in the same brass
+ * every other recommendation in this product uses (§7). */
+.choice__option--lead {
+  box-shadow: var(--shadow-raised);
+  outline: 1px solid var(--brass);
+  outline-offset: -1px;
+}
+
+.choice__badge {
+  margin-inline-start: var(--space-4);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-regular);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+.choice__lede {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .coach__go:active,
+  .learn__lesson:active {
+    transform: none;
+  }
+}

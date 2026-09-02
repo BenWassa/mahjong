@@ -1,6 +1,7 @@
 import type { GameRecord, RulesProfile } from "@engine";
 
 import type { CornerLabelMode } from "../tiles/Tile";
+import { isLessonId, type LessonId } from "../tutorial/ids";
 import { isTableMode, type TableMode } from "./modes";
 
 /**
@@ -15,6 +16,7 @@ const KEY_PREFIX = "mahjong:v1:";
 const SETTINGS_KEY = `${KEY_PREFIX}settings`;
 const CURRENT_GAME_KEY = `${KEY_PREFIX}current-game`;
 const COMPLETED_GAMES_KEY = `${KEY_PREFIX}completed-games`;
+const TUTORIAL_KEY = `${KEY_PREFIX}tutorial`;
 
 /** Keeps history bounded on disk; stats read the whole list, so this is generous. */
 const MAX_COMPLETED_GAMES = 500;
@@ -261,4 +263,97 @@ export function appendCompletedGame(record: GameRecord): readonly GameRecord[] {
   const updated = [...existing, record].slice(-MAX_COMPLETED_GAMES);
   writeRaw(COMPLETED_GAMES_KEY, JSON.stringify(updated));
   return updated;
+}
+
+/**
+ * Learn to Play progress (#30). This is a record of what the player has
+ * already been taught, so it is deliberately small and additive: which
+ * lessons are finished and whether they reached the end of the course. It
+ * holds no lesson content and no engine state, because the lesson catalogue
+ * can be rewritten between builds and a stored copy of it would only go stale.
+ */
+export interface PersistedTutorial {
+  readonly version: 1;
+  /** Lessons the player has finished, in no particular order. */
+  readonly completed: readonly LessonId[];
+  /** True once the player has reached the end of the five core lessons. */
+  readonly finished: boolean;
+}
+
+export const DEFAULT_TUTORIAL: PersistedTutorial = Object.freeze({
+  version: 1,
+  // Frozen as well as the object around it: this default is handed straight
+  // back to every caller that has no saved progress, so a caller that pushed
+  // onto it would be editing the default for everyone else in the session.
+  completed: Object.freeze([]),
+  finished: false,
+});
+
+/**
+ * What a tutorial blob has to look like before its contents are worth
+ * inspecting. `completed` is checked only for being an array here — the ids
+ * inside it are filtered afterwards rather than validated as a group, because
+ * a single unrecognised id must not be grounds for discarding the blob.
+ */
+interface StoredTutorialShape {
+  readonly version: 1;
+  readonly completed: readonly unknown[];
+  readonly finished: boolean;
+}
+
+function isStoredTutorialShape(value: unknown): value is StoredTutorialShape {
+  if (!isRecord(value)) return false;
+  return (
+    value.version === 1 &&
+    Array.isArray(value.completed) &&
+    typeof value.finished === "boolean"
+  );
+}
+
+/**
+ * Keeps the lesson ids this build still recognises, in stored order, with
+ * duplicates collapsed.
+ *
+ * Filtering rather than rejecting is the whole point. Lessons get renamed,
+ * split and retired between builds, and a player who finished four of them
+ * should not lose all four because the fifth no longer exists under that name.
+ * Duplicates are dropped in the same pass so that a double-write by an earlier
+ * build cannot make a lesson look completed twice to anything that counts.
+ */
+function keepKnownLessons(stored: readonly unknown[]): readonly LessonId[] {
+  const known = new Set<LessonId>();
+  for (const entry of stored) {
+    if (isLessonId(entry)) known.add(entry);
+  }
+  return [...known];
+}
+
+export function loadTutorial(): PersistedTutorial {
+  const raw = readRaw(TUTORIAL_KEY);
+  if (raw === null) return DEFAULT_TUTORIAL;
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (isStoredTutorialShape(parsed)) {
+      return {
+        version: 1,
+        completed: keepKnownLessons(parsed.completed),
+        finished: parsed.finished,
+      };
+    }
+  } catch {
+    // Fall through to the safe default below.
+  }
+  // The blob is not tutorial progress at all, so it is cleared rather than
+  // left to fail validation again on every launch. Losing the record only
+  // costs the player a repeated lesson; keeping it costs nothing but noise.
+  removeRaw(TUTORIAL_KEY);
+  return DEFAULT_TUTORIAL;
+}
+
+export function saveTutorial(progress: PersistedTutorial): void {
+  writeRaw(TUTORIAL_KEY, JSON.stringify(progress));
+}
+
+export function clearTutorial(): void {
+  removeRaw(TUTORIAL_KEY);
 }
