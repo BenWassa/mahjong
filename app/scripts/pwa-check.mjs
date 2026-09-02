@@ -59,8 +59,11 @@ const cached = await page.evaluate(async () => {
 if (cached < 5) problems.push(`Precache holds only ${cached} entries`);
 
 // 3. With the network gone, a cold navigation still deals a playable hand.
+// `mode=standard` answers the one-time first-launch question. Without it a
+// fresh browser context correctly lands on ModeChoice, so waiting for `.app`
+// would test the old entry flow rather than the offline PWA contract.
 await context.setOffline(true);
-await page.goto(`${BASE}?seed=offline-check`, { waitUntil: "domcontentloaded" });
+await page.goto(`${BASE}?seed=offline-check&mode=standard`, { waitUntil: "domcontentloaded" });
 await page.waitForSelector(".app", { timeout: 15000 }).catch(() => {
   problems.push("The table did not render with the network offline");
 });
