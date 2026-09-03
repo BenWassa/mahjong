@@ -250,3 +250,13 @@ Things the implementation chose that only a person can judge:
 6. **Rotation habits.** Players who used earlier builds were taught that
    rotation is the menu. Watch whether the Menu button is found before the
    phone is turned.
+7. **How many Continue presses the opening phase costs.** §5.3 reserves
+   explicit Continue for whole-table ideas with no action to perform, and
+   actions advance their own step — but the first phase still has four such
+   ideas in a row (your hand, the drawn tile, the middle of the table, the
+   other three players), each with its own spotlight. That is a defensible
+   reading of the rule and it may still be one press too many. Count how many
+   participants press Continue without reading, and whether anybody treats the
+   opening as a slideshow to get through rather than a table to look at. If
+   they do, the fix is to fold the consequence notes into the actions that
+   caused them, not to shorten the sentences.
