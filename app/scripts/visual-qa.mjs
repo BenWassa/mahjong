@@ -905,6 +905,10 @@ async function walkOnboarding(page, viewport, path, steps) {
 
   await page.click(".status__menu");
   await page.waitForSelector(".menu__panel", { timeout: 5000 });
+  // Past the overlay's fade (--dur-overlay, 260ms). A frame caught mid-fade
+  // shows the table through the panel and reads as a transparency bug that is
+  // not there — evidence a human is going to look at has to be settled first.
+  await page.waitForTimeout(400);
   await capture(page, viewport, "menu-landscape");
   await assertGeometry(page, "menu", viewport);
 
