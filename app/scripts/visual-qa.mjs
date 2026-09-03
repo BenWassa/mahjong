@@ -686,6 +686,25 @@ async function walkLesson(page, viewport, lessonId, steps) {
  */
 async function walkOnboarding(page, viewport, path, steps) {
   const url = `${BASE}?experience=${path}&seed=qa-onboard`;
+  /*
+   * A fresh install, explicitly.
+   *
+   * `?experience=` only stands in for a tap nobody has made yet: a stored
+   * answer wins, and #33 makes that load-bearing — a link must never be able
+   * to drop somebody who has played fifty hands into a scripted walkthrough.
+   * So the second walk on a reused page would find the first walk's stored
+   * answer and go straight to a table. Clearing local state first is the
+   * honest analogue of a first launch, and it is the same reset a human
+   * tester performs between the three paths.
+   */
+  await page.goto(BASE, { waitUntil: "domcontentloaded" });
+  await page.evaluate(() => {
+    try {
+      window.localStorage.clear();
+    } catch {
+      // Storage may be unavailable; the walk below will say so by timing out.
+    }
+  });
   await page.goto(url, { waitUntil: "domcontentloaded" });
   await page.waitForSelector(".onboarding", { timeout: 10000 });
   const where = `${viewport.id} / onboarding-${path}`;
