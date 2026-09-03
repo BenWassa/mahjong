@@ -55,6 +55,24 @@ export function useTutorialRunner(lesson: Lesson, autoAdvance: boolean): Tutoria
   const runner = runnerRef.current;
   const [snapshot, setSnapshot] = useState<TutorialSnapshot>(() => runner.snapshot());
 
+  /*
+   * Re-read the snapshot during the render that swaps the runner, not in the
+   * effect afterwards.
+   *
+   * This is React's documented "adjust state when a prop changes" pattern, and
+   * it is load-bearing rather than tidy. A caller that advances *because* the
+   * snapshot says `finished` — which is how the #33 walkthrough moves from one
+   * phase to the next — would otherwise see the outgoing runner's `finished`
+   * for one more render after the incoming phase had already been built, fire
+   * again, and skip a whole phase. It did exactly that: the first-run claim
+   * phase was silently jumped over between the opening hand and the win.
+   */
+  const [boundTo, setBoundTo] = useState(lessonId);
+  if (boundTo !== lessonId) {
+    setBoundTo(lessonId);
+    setSnapshot(runner.snapshot());
+  }
+
   useEffect(() => {
     const current = runnerRef.current;
     if (current === null) return undefined;

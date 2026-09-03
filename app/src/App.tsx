@@ -8,20 +8,14 @@ import { StatsView } from "./components/StatsView";
 import { TableView } from "./components/TableView";
 import {
   EXPERIENCE_DEFAULTS,
-  isExperiencePath,
   type ExperiencePath,
   type OnboardingPath,
 } from "./game/experience";
 import { useLearningProgress } from "./game/explain";
 import { reducePlayerActions } from "./game/interaction";
-import { isTableMode, MODE_RULES, type TableMode } from "./game/modes";
-import {
-  loadSettings,
-  loadTutorial,
-  saveSettings,
-  saveTutorial,
-  type PersistedSettings,
-} from "./game/persistence";
+import { MODE_RULES, type TableMode } from "./game/modes";
+import { loadSettings, loadTutorial, saveSettings, saveTutorial } from "./game/persistence";
+import { openingFor, parseLaunchQuery } from "./game/routing";
 import { newMatchSeed } from "./game/seed";
 import { useGameSession, type ActionReducer } from "./game/useGameSession";
 import { useIsLandscape } from "./game/useOrientation";
@@ -60,125 +54,23 @@ function initialSeed(): string {
 }
 
 /**
- * `?learn=1` opens the replayable lesson menu on load; `?learn=<lesson id>`
- * opens that lesson directly.
+ * `?learn=<lesson id>` opens one replayable lesson directly; the rest of the
+ * launch query is read by `game/routing.ts`.
  *
- * It exists for the same reason `?mode=` does: the rendered QA sweep and the
- * accessibility check need to reach a surface a fresh browser profile
- * otherwise only reaches through several taps. Like `?mode=`, it is never
- * written to storage, so a link cannot reconfigure a real player's app.
+ * These exist for the same reason `?mode=` does: the rendered QA sweep, the
+ * accessibility check and a human tester need to reach a surface a fresh
+ * browser profile otherwise only reaches through several taps. None of them is
+ * ever written to storage, so a link cannot reconfigure a real player's app.
  */
-function urlLearn(): { open: boolean; lesson: LessonId | null } {
+function urlLesson(): LessonId | null {
   const value = new URLSearchParams(window.location.search).get("learn");
-  if (value === null) return { open: false, lesson: null };
-  if (isLessonId(value)) return { open: true, lesson: value };
-  return { open: value === "1", lesson: null };
-}
-
-function urlMode(): TableMode | null {
-  const value = new URLSearchParams(window.location.search).get("mode");
-  return isTableMode(value) ? value : null;
-}
-
-/**
- * `?experience=new|rusty|confident`, alongside `?mode=` and `?seed=`.
- *
- * Answers the first-launch question the way a tap would, including routing
- * into the walkthrough — which is what lets the QA sweep, the accessibility
- * check and a human tester reach a first-run path on demand instead of having
- * to clear local storage between attempts. Like `?mode=`, it is never written
- * to storage: a link can open a path, it cannot reconfigure somebody's app.
- */
-function urlExperience(): ExperiencePath | null {
-  const value = new URLSearchParams(window.location.search).get("experience");
-  return isExperiencePath(value) ? value : null;
-}
-
-interface Opening {
-  readonly experience: ExperiencePath | null;
-  readonly mode: TableMode;
-  readonly showAllClaims: boolean;
-  readonly cornerLabel: CornerLabelMode;
-  readonly assistOn: boolean;
-  readonly explainOn: boolean;
-  /** The walkthrough to open on, or null to go straight to a table. */
-  readonly onboarding: OnboardingPath | null;
-}
-
-/**
- * What to open on.
- *
- * A stored answer wins, and a stored answer means the question is not asked
- * again — an existing player must never be dropped into a walkthrough because
- * a new version arrived. Failing that, `?experience=` and then `?mode=` stand
- * in for the tap that was never made. Only when none of those exists is the
- * question put.
- */
-function opening(settings: PersistedSettings): Opening {
-  const stored = {
-    mode: settings.mode,
-    showAllClaims: settings.showAllClaims,
-    cornerLabel: settings.cornerLabel,
-    assistOn: settings.assistOn,
-    explainOn: settings.explainOn,
-  };
-
-  if (settings.experience !== null) {
-    // §3.3: a walkthrough resumes only while one is genuinely in progress.
-    // Once it has been finished or skipped, the entry path is spent and the
-    // replayable lessons are the way back to teaching material.
-    const progress = loadTutorial();
-    const resuming =
-      progress.onboarding !== null && !progress.onboardingDone
-        ? progress.onboarding.path
-        : null;
-    return { experience: settings.experience, ...stored, onboarding: resuming };
-  }
-
-  const fromUrl = urlExperience();
-  if (fromUrl !== null) {
-    return { experience: fromUrl, ...defaultsFor(fromUrl) };
-  }
-
-  const modeFromUrl = urlMode();
-  if (modeFromUrl !== null) {
-    // A `?mode=` link is somebody who has said which table they want, which is
-    // the confident path with the table overridden. It has to stand in for the
-    // whole of the tap, claim band included, or the link would produce a
-    // "beginner" table that still offered Chow and Kong.
-    return {
-      experience: "confident",
-      ...stored,
-      mode: modeFromUrl,
-      showAllClaims: modeFromUrl === "standard",
-      onboarding: null,
-    };
-  }
-
-  // `?learn=` stands in for reaching the replayable lessons, which needs a
-  // table behind it but is not an answer to the experience question.
-  if (urlLearn().open) {
-    return { experience: "confident", ...stored, mode: "beginner", showAllClaims: false, onboarding: null };
-  }
-
-  return { experience: null, ...stored, onboarding: null };
-}
-
-function defaultsFor(path: ExperiencePath): Omit<Opening, "experience"> {
-  const preset = EXPERIENCE_DEFAULTS[path];
-  return {
-    mode: preset.mode,
-    showAllClaims: preset.showAllClaims,
-    cornerLabel: preset.cornerLabel,
-    assistOn: preset.assistOn,
-    explainOn: preset.explainOn,
-    onboarding: preset.onboarding,
-  };
+  return isLessonId(value) ? value : null;
 }
 
 export function App(): JSX.Element {
-  const [settings] = useState(loadSettings);
-  const [start] = useState(() => opening(settings));
+  const [start] = useState(() =>
+    openingFor(loadSettings(), loadTutorial(), parseLaunchQuery(window.location.search)),
+  );
 
   const [experience, setExperience] = useState<ExperiencePath | null>(start.experience);
   const [onboarding, setOnboarding] = useState<OnboardingPath | null>(start.onboarding);
@@ -188,8 +80,8 @@ export function App(): JSX.Element {
   const [explainOn, setExplainOn] = useState(start.explainOn);
   const [showAllClaims, setShowAllClaims] = useState(start.showAllClaims);
 
-  const [learnEntry] = useState(urlLearn);
-  const [surface, setSurface] = useState<Surface>(learnEntry.open ? "learn" : "table");
+  const [learnEntry] = useState(urlLesson);
+  const [surface, setSurface] = useState<Surface>(start.learn ? "learn" : "table");
   const [menuOpen, setMenuOpen] = useState(false);
   /**
    * True for the hand immediately after a walkthrough or the lessons. It only
@@ -197,9 +89,6 @@ export function App(): JSX.Element {
    * the player still makes every decision.
    */
   const [guided, setGuided] = useState(false);
-  /** Whether the lessons were opened by the first-launch question. */
-  const [learnFirstRun, setLearnFirstRun] = useState(false);
-
   /**
    * Switching table later. Beginner sets the learning aids on and reduces the
    * claim band; it does not lock any of them, because DESIGN.md §21 carries
@@ -275,19 +164,6 @@ export function App(): JSX.Element {
     setSurface("table");
   }, []);
 
-  const leaveLearning = useCallback(
-    (next: TableMode | null, wasGuided: boolean) => {
-      if (next !== null) chooseMode(next);
-      if (wasGuided) {
-        setAssistOn(true);
-        setExplainOn(true);
-      }
-      setGuided(wasGuided);
-      setSurface("table");
-    },
-    [chooseMode],
-  );
-
   if (experience === null) {
     return <ExperienceChoice onChoose={chooseExperience} />;
   }
@@ -303,21 +179,19 @@ export function App(): JSX.Element {
       explainOn={explainOn}
       showAllClaims={showAllClaims}
       guided={guided}
-      learnEntry={learnEntry.lesson}
-      learnFirstRun={learnFirstRun}
+      learnEntry={learnEntry}
       onOpenMenu={() => { setMenuOpen(true); }}
       onCloseMenu={() => { setMenuOpen(false); }}
       onSurface={setSurface}
       onFinishOnboarding={finishOnboarding}
       onGuidedHandEnded={() => { setGuided(false); }}
-      onLeaveLearning={leaveLearning}
+      onLeaveLearning={() => { setSurface("table"); }}
       onChooseMode={chooseMode}
       onCycleLabel={() => { setCornerLabel(nextCornerLabel); }}
       onToggleAssist={() => { setAssistOn((current) => !current); }}
       onToggleExplain={() => { setExplainOn((current) => !current); }}
       onToggleAllClaims={() => { setShowAllClaims((current) => !current); }}
       onLearnFromMenu={() => {
-        setLearnFirstRun(false);
         setSurface("learn");
         setMenuOpen(false);
       }}
@@ -345,7 +219,6 @@ function Shell({
   showAllClaims,
   guided,
   learnEntry,
-  learnFirstRun,
   onOpenMenu,
   onCloseMenu,
   onSurface,
@@ -369,13 +242,12 @@ function Shell({
   readonly showAllClaims: boolean;
   readonly guided: boolean;
   readonly learnEntry: LessonId | null;
-  readonly learnFirstRun: boolean;
   readonly onOpenMenu: () => void;
   readonly onCloseMenu: () => void;
   readonly onSurface: (surface: Surface) => void;
   readonly onFinishOnboarding: (completed: boolean) => void;
   readonly onGuidedHandEnded: () => void;
-  readonly onLeaveLearning: (mode: TableMode | null, guided: boolean) => void;
+  readonly onLeaveLearning: () => void;
   readonly onChooseMode: (mode: TableMode) => void;
   readonly onCycleLabel: () => void;
   readonly onToggleAssist: () => void;
@@ -443,13 +315,7 @@ function Shell({
   if (surface === "learn") {
     return (
       <>
-        <Learn
-          cornerLabel={cornerLabel}
-          openAt={learnEntry}
-          firstRun={learnFirstRun}
-          onLeave={() => { onLeaveLearning(null, false); }}
-          onGraduate={(next) => { onLeaveLearning(next, true); }}
-        />
+        <Learn cornerLabel={cornerLabel} openAt={learnEntry} onLeave={onLeaveLearning} />
         {menu}
       </>
     );

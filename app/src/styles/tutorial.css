@@ -675,7 +675,11 @@
   background: transparent;
 }
 
-.coach__menu {
+/* Menu and Skip travel together at the end of the strip, away from Continue.
+ * The base rule pushes a lone Leave control to the end with an auto margin;
+ * applied to both of these it would strand Menu in the middle of the strip
+ * with Skip at the edge, which reads as two unrelated controls. */
+.coach--onboarding .coach__menu {
   margin-inline-start: auto;
 }
 
