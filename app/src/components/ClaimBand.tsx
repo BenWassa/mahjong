@@ -61,14 +61,14 @@ export function ClaimBand({
 }): JSX.Element {
   if (actions.length === 0) {
     return (
-      <div className="claimband" role="group" aria-label="No claim available">
+      <div className="claimband" role="group" aria-label="No claim available" data-teach="claims">
         {assistHint}
       </div>
     );
   }
 
   return (
-    <div className="claimband" role="group" aria-label="Claim options">
+    <div className="claimband" role="group" aria-label="Claim options" data-teach="claims">
       {actions.map((action, index) => {
         const label = CLAIM_LABEL[action.type];
         const contributed = contributedTiles(action, hand);
@@ -90,6 +90,7 @@ export function ClaimBand({
               type="button"
               className={`claim claim--${action.type === "pass" ? "pass" : action.type === "win" ? "win" : "meld"}`}
               data-assist={assistOn && action.type !== "pass"}
+              data-teach-claim={action.type}
               onClick={() => { onClaim(action); }}
               aria-label={`${label.en}${detail}`}
             >

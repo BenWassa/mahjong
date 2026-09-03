@@ -8,6 +8,7 @@ import type {
 } from "@engine";
 
 import type { LessonId } from "./ids";
+import type { StepFocus } from "./targets";
 
 /**
  * The five core lessons of Learn to Play (#30).
@@ -45,6 +46,37 @@ export interface LessonStepBase {
    * position it describes rather than three moves later.
    */
   readonly until?: (view: PublicGameState) => boolean;
+  /**
+   * The object this step is about, and the sentence to put beside it (#33).
+   *
+   * A step with no focus is a whole-table idea with no single target — "play
+   * moves to your right", "nothing in this hand is scripted" — and belongs in
+   * the coach strip. A step *with* a focus must never rely on the strip alone:
+   * `ONBOARDING_DESIGN.md` §5.1 puts object-specific instruction next to its
+   * object, and §5.6 says what happens when the phone has no room for it.
+   */
+  readonly focus?: StepFocus;
+  /**
+   * Progressively stronger cues for a learner who has stopped (§5.4), from
+   * soft to explicit. Empty or absent means the prompt is the only cue.
+   */
+  readonly hints?: readonly string[];
+  /**
+   * True for a step whose subject is a private interface convention rather
+   * than a judgement — tap once to lift, tap again to discard. There is
+   * nothing to reason out, so the explicit cue is shown immediately instead of
+   * making the player discover a convention nobody told them about.
+   */
+  readonly immediateHint?: boolean;
+  /**
+   * Holds the step open after it is satisfied, until the player continues.
+   *
+   * Onboarding steps otherwise advance themselves once the player has acted:
+   * §5.3 rules out a Next press after every micro-step, and the consequence
+   * note is a thing to read, not a thing to acknowledge. Set this where the
+   * note genuinely needs to be sat with.
+   */
+  readonly hold?: boolean;
 }
 
 export interface NoteStep extends LessonStepBase {
@@ -68,6 +100,19 @@ export interface IdentifyStep extends LessonStepBase {
 export interface ActStep extends LessonStepBase {
   readonly kind: "act";
   /**
+   * The move to perform on the player's behalf when they take the rescue
+   * offered at the end of the hint ladder (§5.4). Absent where a step has no
+   * single right answer, in which case no rescue is offered.
+   *
+   * Taking it is recorded and deliberately not counted as demonstrated
+   * comprehension — §14.6 asks for rescue hints to be measured separately from
+   * ordinary assistance for exactly this reason.
+   */
+  readonly rescue?: (
+    view: PublicGameState,
+    offered: readonly GameAction[],
+  ) => GameAction | null;
+  /**
    * Narrows what the interface offers to the decision being taught. It is a
    * filter over actions the engine has already declared legal and can only
    * ever remove one; everything it hides is still a legal move.
@@ -88,7 +133,12 @@ export interface ScriptedDiscard {
 }
 
 export interface Lesson {
-  readonly id: LessonId;
+  /**
+   * Widened from the five replayable lesson ids so the #33 first-run phases
+   * can use the same runner. `LESSONS` below stays narrowly typed, so nothing
+   * that records lesson progress lost its guarantee.
+   */
+  readonly id: string;
   readonly title: string;
   /** One line on the Learn menu. Says what the player will do, not what they will read. */
   readonly summary: string;
@@ -160,7 +210,7 @@ function discardedBy(view: PublicGameState, seat: Seat, kind: OrdinaryTileKind):
  * pair, seen whole, before anything moves. Every later lesson is about getting
  * to this shape, and none of them make sense without it.
  */
-const SHAPE: Lesson = {
+const SHAPE: CoreLesson = {
   id: "shape",
   title: "Four sets and a pair",
   summary: "See a finished hand and name the shapes it is made of.",
@@ -237,7 +287,7 @@ const SHAPE: Lesson = {
  * real engine discard, and the three opponent turns that follow are real
  * turns — this is the first time the table moves under them.
  */
-const TURN: Lesson = {
+const TURN: CoreLesson = {
   id: "turn",
   title: "Taking a turn",
   summary: "Draw a tile, choose a discard, and watch the table come round to you.",
@@ -313,7 +363,7 @@ const TURN: Lesson = {
  * avoided on purpose — the player learns that a hand has a distance left to
  * run without being handed the word "shanten" to carry.
  */
-const IMPROVE: Lesson = {
+const IMPROVE: CoreLesson = {
   id: "improve",
   title: "Choosing what to throw",
   summary: "Three discards where one choice moves you forward and the others do not.",
@@ -433,7 +483,7 @@ const CLAIMS_RESERVED: readonly OrdinaryTileKind[] = [
   "bamboo-5",
 ];
 
-const CLAIMS: Lesson = {
+const CLAIMS: CoreLesson = {
   id: "claims",
   title: "Taking other players' tiles",
   summary: "Pung, Chow, Kong and pass — each on a tile thrown in front of you.",
@@ -565,7 +615,7 @@ const CLAIMS: Lesson = {
  * on its own. That is deliberate: it clears the standard minimum, so nothing
  * here teaches Beginner's zero-faan floor as though it were the rule.
  */
-const WIN: Lesson = {
+const WIN: CoreLesson = {
   id: "win",
   title: "Declaring a win",
   summary: "Spot the tile that finishes your hand, and call it.",
@@ -639,9 +689,11 @@ const WIN: Lesson = {
   ],
 };
 
-export const LESSONS: readonly Lesson[] = [SHAPE, TURN, IMPROVE, CLAIMS, WIN];
+export type CoreLesson = Lesson & { readonly id: LessonId };
 
-export function lessonById(id: LessonId): Lesson {
+export const LESSONS: readonly CoreLesson[] = [SHAPE, TURN, IMPROVE, CLAIMS, WIN];
+
+export function lessonById(id: LessonId): CoreLesson {
   const lesson = LESSONS.find((candidate) => candidate.id === id);
   if (lesson === undefined) throw new Error(`Unknown lesson ${id}`);
   return lesson;

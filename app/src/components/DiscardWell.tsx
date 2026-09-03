@@ -47,7 +47,7 @@ export function DiscardWell({
   const latest = inPile.at(-1);
 
   return (
-    <div className="well">
+    <div className="well" data-teach="discard-well">
       {/* The plaque is ambient information and the offered tile is a live
           decision; they do not both need the centre of the table at once. The
           slot reserves the taller of the two so swapping between them does not
@@ -56,7 +56,7 @@ export function DiscardWell({
         {offered === null ? (
           <RoundPlaque view={view} />
         ) : (
-          <div className="offer" role="status">
+          <div className="offer" role="status" data-teach="offer">
             <Tile key={offered.id} kind={offered.kind} variant="offer" state="pending" />
             <span className="offer__label">
               {offeredFrom === null ? "on offer" : `${offeredFrom} discarded`}

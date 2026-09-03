@@ -55,6 +55,11 @@ export function PlayerHand({
         className="hand"
         role="group"
         aria-label={`Your hand, ${String(tiles.length)} tiles`}
+        /* Onboarding's attention layer measures the real element rather than
+           storing a coordinate for it (#33, tutorial/targets.ts). Stamping the
+           production component is what makes the spotlight correct at every
+           tier and inset; nothing reads these outside a teaching surface. */
+        data-teach="hand"
       >
         {tiles.map((tile) => {
           const isSelected = selected === tile.id;
@@ -65,6 +70,7 @@ export function PlayerHand({
               key={tile.id}
               type="button"
               className="hand__slot"
+              data-teach-tile={tile.id}
               data-selected={isSelected}
               data-discardable={!choosing || canDiscard}
               data-marked={isMarked}
@@ -91,7 +97,12 @@ export function PlayerHand({
       </div>
 
       {melds.length > 0 && (
-        <div className="hand__melds" role="group" aria-label="Your exposed melds">
+        <div
+          className="hand__melds"
+          role="group"
+          aria-label="Your exposed melds"
+          data-teach="hand-melds"
+        >
           {melds.map((meld, index) => (
             <MeldGroup key={index} meld={meld} variant="meld" />
           ))}

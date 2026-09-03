@@ -4,7 +4,7 @@ import type { GameAction, TileId } from "@engine";
 
 import { loadTutorial, saveTutorial } from "../game/persistence";
 import type { LessonId } from "./ids";
-import { lessonById } from "./lessons";
+import { lessonById, type Lesson } from "./lessons";
 import { TutorialRunner, type TutorialSnapshot } from "./runner";
 
 /**
@@ -20,17 +20,36 @@ export interface TutorialHandle {
   readonly act: (action: GameAction) => void;
   readonly identify: (tileId: TileId) => void;
   readonly advance: () => void;
-  /** Holds the lesson's opponent pacing still while Peek is open. */
+  /**
+   * The last rung of the assistance ladder: play the step's own answer. Does
+   * nothing until the ladder has actually reached it (#33, §5.4).
+   */
+  readonly rescue: () => void;
+  /** Holds the pacing still while an overlay is open over the table. */
   readonly setPaused: (paused: boolean) => void;
 }
 
 export function useTutorialLesson(lessonId: LessonId): TutorialHandle {
+  return useTutorialRunner(lessonById(lessonId), false);
+}
+
+/**
+ * Binds a runner to one lesson or walkthrough phase.
+ *
+ * `autoAdvance` is what separates the two callers. The #33 first-run phases
+ * move themselves on once the player has acted, because §5.3 rules out a Next
+ * press after every micro-step; the replayable #30 lessons do not, because
+ * their longer explanatory notes were written to be sat with and their reader
+ * returns to a menu afterwards anyway.
+ */
+export function useTutorialRunner(lesson: Lesson, autoAdvance: boolean): TutorialHandle {
   const runnerRef = useRef<TutorialRunner | null>(null);
-  const activeRef = useRef<LessonId | null>(null);
+  const activeRef = useRef<string | null>(null);
+  const lessonId = lesson.id;
 
   if (runnerRef.current === null || activeRef.current !== lessonId) {
     runnerRef.current?.dispose();
-    runnerRef.current = new TutorialRunner({ lesson: lessonById(lessonId) });
+    runnerRef.current = new TutorialRunner({ lesson, autoAdvance });
     activeRef.current = lessonId;
   }
   const runner = runnerRef.current;
@@ -50,6 +69,7 @@ export function useTutorialLesson(lessonId: LessonId): TutorialHandle {
     act: useCallback((action: GameAction) => { runnerRef.current?.act(action); }, []),
     identify: useCallback((tileId: TileId) => { runnerRef.current?.identify(tileId); }, []),
     advance: useCallback(() => { runnerRef.current?.advance(); }, []),
+    rescue: useCallback(() => { runnerRef.current?.rescue(); }, []),
     setPaused: useCallback((paused: boolean) => { runnerRef.current?.setPaused(paused); }, []),
   };
 }

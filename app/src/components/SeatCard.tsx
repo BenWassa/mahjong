@@ -40,6 +40,8 @@ export function SeatCard({
     <section
       className={`seat seat--${position}`}
       data-active={active}
+      /* Measured by onboarding's attention layer (#33, tutorial/targets.ts). */
+      data-teach={`seat-${position}`}
       aria-label={`${where} opponent, ${wind} seat${active ? ", to play" : ""}`}
     >
       <div className="seat__head">

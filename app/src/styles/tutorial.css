@@ -551,3 +551,168 @@
     transform: none;
   }
 }
+
+/* ==========================================================================
+   The spatial teaching layer (#33, ONBOARDING_DESIGN.md §5)
+   ==========================================================================
+
+   Painted over the table, never in its layout: a spotlight that quiets
+   everything except the object the current step is about, and a callout
+   carrying the sentence about it.
+
+   The whole layer is inert to touch. The learner taps the real hand, the real
+   claim button and the real tile — the spotlight is a way of seeing the table,
+   not a thing standing in front of it. */
+
+.attention {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  pointer-events: none;
+}
+
+.attention__scrim {
+  position: absolute;
+  inset: 0;
+  display: block;
+}
+
+.attention__dim {
+  fill: var(--table-edge);
+  fill-opacity: 0.52;
+  transition: fill-opacity var(--dur-overlay) var(--ease-out);
+}
+
+/* The cue strengthens with hesitation (§5.4) by narrowing the visual search
+   space, not by adding a colour: the target's surroundings recede further and
+   its ring thickens. */
+.attention[data-level="1"] .attention__dim { fill-opacity: 0.62; }
+.attention[data-level="2"] .attention__dim,
+.attention[data-level="3"] .attention__dim { fill-opacity: 0.72; }
+
+/* State is never carried by hue alone (DESIGN.md §7), and a spotlight that was
+   only "brighter than its surroundings" would be a brightness difference and
+   nothing else. The ring is the shape signal that survives a colour-vision
+   difference or a bright pavement. */
+.attention__ring {
+  fill: none;
+  stroke: var(--brass);
+  stroke-width: 2;
+  opacity: 0.9;
+}
+
+.attention[data-level="2"] .attention__ring,
+.attention[data-level="3"] .attention__ring {
+  stroke-width: 3;
+  opacity: 1;
+}
+
+.attention__leader {
+  stroke: var(--brass);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-dasharray: 3 4;
+  opacity: 0.85;
+}
+
+.attention__callout {
+  position: absolute;
+  max-width: min(30ch, 42vw);
+  padding: var(--space-4) var(--space-5);
+  border-radius: var(--radius-surface);
+  background: var(--surface-overlay);
+  color: var(--text-primary);
+  border: 1px solid var(--brass);
+  box-shadow: var(--shadow-overlay);
+  font-size: var(--text-sm);
+  line-height: 1.35;
+  /* Sized to its own content so the placement engine measures the height the
+     sentence actually wraps to. A guessed height would put a two-line callout
+     over the tile it is about, which is the one placement §5.5 forbids. */
+  width: max-content;
+}
+
+.attention__callout[data-rung="edge"] {
+  border-style: dashed;
+}
+
+/* The pulse is an accent on an already-complete signal: the ring, the dimming
+   and the position all read with it switched off. */
+@media (prefers-reduced-motion: no-preference) {
+  .attention__ring { animation: attention-breathe 2.4s ease-in-out infinite; }
+}
+
+@keyframes attention-breathe {
+  0%, 100% { opacity: 0.75; }
+  50% { opacity: 1; }
+}
+
+/* ==========================================================================
+   The walkthrough's own chrome (#33)
+   ==========================================================================
+
+   Smaller than the #30 coach strip it sits alongside: object-specific
+   instruction has moved next to its object, so what is left here is the
+   whole-table sentence, the hint the ladder is currently owed, and the two
+   controls — Menu and Skip. */
+
+.coach--onboarding {
+  grid-template-areas:
+    "head head"
+    "body controls";
+}
+
+.coach__menu,
+.coach__rescue {
+  min-height: var(--touch-min);
+  padding: 0 var(--space-4);
+  font-size: var(--text-sm);
+  letter-spacing: normal;
+  text-transform: none;
+  color: var(--text-secondary);
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--radius-control);
+  background: transparent;
+}
+
+.coach__menu {
+  margin-inline-start: auto;
+}
+
+.coach--onboarding .coach__quit {
+  margin-inline-start: 0;
+}
+
+.coach__controls {
+  grid-area: controls;
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+/* The anchored sentence, taken back by the strip only when the phone had
+   nowhere to put it (§5.6). Its target stays spotlit throughout, which is what
+   keeps this the floor of the ladder rather than a return to the defect the
+   whole attention system exists to fix. */
+.coach__anchored {
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+}
+
+/* Progressive assistance (§5.4). Quieter than the instruction it sits under:
+   it is an offer of help, not a new thing to do. */
+.coach__hint {
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-sm);
+  color: var(--text-tertiary);
+}
+
+.coach__rescue {
+  color: var(--text-primary);
+}
+
+.coach__menu:active,
+.coach__rescue:active {
+  background: var(--surface-raised);
+}

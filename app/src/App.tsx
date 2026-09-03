@@ -1,48 +1,58 @@
 import { useCallback, useEffect, useState, type JSX } from "react";
 
-import { ModeChoice } from "./components/ModeChoice";
+import { ExperienceChoice } from "./components/ExperienceChoice";
+import { MenuSheet, nextCornerLabel } from "./components/MenuSheet";
+import { RotateNotice } from "./components/RotateNotice";
 import { RulesReference } from "./components/RulesReference";
 import { StatsView } from "./components/StatsView";
 import { TableView } from "./components/TableView";
+import {
+  EXPERIENCE_DEFAULTS,
+  isExperiencePath,
+  type ExperiencePath,
+  type OnboardingPath,
+} from "./game/experience";
 import { useLearningProgress } from "./game/explain";
 import { reducePlayerActions } from "./game/interaction";
 import { isTableMode, MODE_RULES, type TableMode } from "./game/modes";
-import { loadSettings, saveSettings, type PersistedSettings } from "./game/persistence";
+import {
+  loadSettings,
+  loadTutorial,
+  saveSettings,
+  saveTutorial,
+  type PersistedSettings,
+} from "./game/persistence";
 import { newMatchSeed } from "./game/seed";
 import { useGameSession, type ActionReducer } from "./game/useGameSession";
+import { useIsLandscape } from "./game/useOrientation";
 import type { CornerLabelMode } from "./tiles/Tile";
 import { isLessonId, type LessonId } from "./tutorial/ids";
 import { Learn } from "./tutorial/Learn";
+import { Onboarding } from "./tutorial/Onboarding";
 
 /**
- * Orientation is a screen-level property (PRD §7). The table is landscape
- * because fourteen tiles have to be simultaneously readable; the menu is the
- * portrait surface. Neither orientation is forced: the app responds to the one
- * the phone is in, and says plainly what the other one is for.
+ * The app's surfaces, and the rule that chooses between them (#33).
+ *
+ * `ONBOARDING_DESIGN.md` §4.2 replaces this app's old navigation model. It
+ * used to be the phone's orientation: landscape was the table, portrait was
+ * the menu, settings, Learn, rules and stats. That is an unusual thing for a
+ * game to do and nothing announces it — a player holding a live table had no
+ * visible route to the rest of the product, and rotating the hardware changed
+ * not just the layout but the entire information architecture.
+ *
+ * The new rule is one line:
+ *
+ *   > screen state chooses the surface; orientation only affects how that
+ *   > surface lays out.
+ *
+ * So a `Surface` below is chosen by what the player pressed. Landscape remains
+ * the table's orientation — fourteen readable tiles is a hard constraint and
+ * #33 does not reopen it — but portrait no longer navigates: it holds the
+ * table's state and asks for the phone back (`RotateNotice`), while the
+ * secondary surfaces lay out in either orientation because landscape is the
+ * grip the player is already in.
  */
-function useIsLandscape(): boolean {
-  const [landscape, setLandscape] = useState(() =>
-    typeof window === "undefined" ? true : window.innerWidth >= window.innerHeight,
-  );
-  useEffect(() => {
-    const update = (): void => { setLandscape(window.innerWidth >= window.innerHeight); };
-    update();
-    window.addEventListener("resize", update);
-    window.addEventListener("orientationchange", update);
-    return () => {
-      window.removeEventListener("resize", update);
-      window.removeEventListener("orientationchange", update);
-    };
-  }, []);
-  return landscape;
-}
-
-const LABEL_MODES: readonly CornerLabelMode[] = ["off", "rank", "rank-suit"];
-const LABEL_NAME: Record<CornerLabelMode, string> = {
-  off: "Off",
-  rank: "Rank",
-  "rank-suit": "Rank and suit",
-};
+type Surface = "table" | "rules" | "stats" | "learn";
 
 function initialSeed(): string {
   const params = new URLSearchParams(window.location.search);
@@ -50,11 +60,11 @@ function initialSeed(): string {
 }
 
 /**
- * `?learn=1` opens the Learn to Play menu on load; `?learn=<lesson id>` opens
- * that lesson directly.
+ * `?learn=1` opens the replayable lesson menu on load; `?learn=<lesson id>`
+ * opens that lesson directly.
  *
  * It exists for the same reason `?mode=` does: the rendered QA sweep and the
- * accessibility check need to reach a surface that a fresh browser profile
+ * accessibility check need to reach a surface a fresh browser profile
  * otherwise only reaches through several taps. Like `?mode=`, it is never
  * written to storage, so a link cannot reconfigure a real player's app.
  */
@@ -65,90 +75,136 @@ function urlLearn(): { open: boolean; lesson: LessonId | null } {
   return { open: value === "1", lesson: null };
 }
 
-/**
- * `?mode=beginner|standard`, alongside the existing `?seed=`.
- *
- * It selects the starting mode and counts as an answer to the first-launch
- * question, which is what lets the rendered QA sweep and the accessibility
- * check reach the table at all on a fresh browser profile. It is deliberately
- * never written to storage: a link cannot silently reconfigure a real
- * player's app.
- */
 function urlMode(): TableMode | null {
   const value = new URLSearchParams(window.location.search).get("mode");
   return isTableMode(value) ? value : null;
 }
 
 /**
- * The mode and claim band to open on.
+ * `?experience=new|rusty|confident`, alongside `?mode=` and `?seed=`.
  *
- * A stored answer wins. Failing that, `?mode=` stands in for the tap the
- * player never made — and it has to stand in for the whole of it, including
- * the reduced claim band, or a link would produce a "beginner" table that
- * still offers Chow and Kong. Only when neither exists is the question asked.
+ * Answers the first-launch question the way a tap would, including routing
+ * into the walkthrough — which is what lets the QA sweep, the accessibility
+ * check and a human tester reach a first-run path on demand instead of having
+ * to clear local storage between attempts. Like `?mode=`, it is never written
+ * to storage: a link can open a path, it cannot reconfigure somebody's app.
  */
-function initialMode(settings: PersistedSettings): {
-  mode: TableMode | null;
-  showAllClaims: boolean;
-} {
-  if (settings.mode !== null) {
-    return { mode: settings.mode, showAllClaims: settings.showAllClaims };
-  }
-  const fromUrl = urlMode();
-  if (fromUrl !== null) {
-    return { mode: fromUrl, showAllClaims: fromUrl === "standard" };
-  }
-  // `?learn=` stands in for the tap on Learn to Play, which answers the
-  // question the same way that tap does — see `startLearning`.
-  if (urlLearn().open) {
-    return { mode: "beginner", showAllClaims: false };
-  }
-  return { mode: null, showAllClaims: settings.showAllClaims };
+function urlExperience(): ExperiencePath | null {
+  const value = new URLSearchParams(window.location.search).get("experience");
+  return isExperiencePath(value) ? value : null;
+}
+
+interface Opening {
+  readonly experience: ExperiencePath | null;
+  readonly mode: TableMode;
+  readonly showAllClaims: boolean;
+  readonly cornerLabel: CornerLabelMode;
+  readonly assistOn: boolean;
+  readonly explainOn: boolean;
+  /** The walkthrough to open on, or null to go straight to a table. */
+  readonly onboarding: OnboardingPath | null;
 }
 
 /**
- * Three independent learning controls (#9), all default on for the initial
- * learning period and each toggled from the portrait menu, which is already
- * this app's settings surface (§ below). None of them is ever required to
- * make a legal move.
+ * What to open on.
  *
- * Their state, and the corner-label mode, persist locally (#10) so a toggle
- * survives a reload; they are read once from storage at startup and written
- * back whenever any of them changes.
+ * A stored answer wins, and a stored answer means the question is not asked
+ * again — an existing player must never be dropped into a walkthrough because
+ * a new version arrived. Failing that, `?experience=` and then `?mode=` stand
+ * in for the tap that was never made. Only when none of those exists is the
+ * question put.
  */
+function opening(settings: PersistedSettings): Opening {
+  const stored = {
+    mode: settings.mode,
+    showAllClaims: settings.showAllClaims,
+    cornerLabel: settings.cornerLabel,
+    assistOn: settings.assistOn,
+    explainOn: settings.explainOn,
+  };
+
+  if (settings.experience !== null) {
+    // §3.3: a walkthrough resumes only while one is genuinely in progress.
+    // Once it has been finished or skipped, the entry path is spent and the
+    // replayable lessons are the way back to teaching material.
+    const progress = loadTutorial();
+    const resuming =
+      progress.onboarding !== null && !progress.onboardingDone
+        ? progress.onboarding.path
+        : null;
+    return { experience: settings.experience, ...stored, onboarding: resuming };
+  }
+
+  const fromUrl = urlExperience();
+  if (fromUrl !== null) {
+    return { experience: fromUrl, ...defaultsFor(fromUrl) };
+  }
+
+  const modeFromUrl = urlMode();
+  if (modeFromUrl !== null) {
+    // A `?mode=` link is somebody who has said which table they want, which is
+    // the confident path with the table overridden. It has to stand in for the
+    // whole of the tap, claim band included, or the link would produce a
+    // "beginner" table that still offered Chow and Kong.
+    return {
+      experience: "confident",
+      ...stored,
+      mode: modeFromUrl,
+      showAllClaims: modeFromUrl === "standard",
+      onboarding: null,
+    };
+  }
+
+  // `?learn=` stands in for reaching the replayable lessons, which needs a
+  // table behind it but is not an answer to the experience question.
+  if (urlLearn().open) {
+    return { experience: "confident", ...stored, mode: "beginner", showAllClaims: false, onboarding: null };
+  }
+
+  return { experience: null, ...stored, onboarding: null };
+}
+
+function defaultsFor(path: ExperiencePath): Omit<Opening, "experience"> {
+  const preset = EXPERIENCE_DEFAULTS[path];
+  return {
+    mode: preset.mode,
+    showAllClaims: preset.showAllClaims,
+    cornerLabel: preset.cornerLabel,
+    assistOn: preset.assistOn,
+    explainOn: preset.explainOn,
+    onboarding: preset.onboarding,
+  };
+}
+
 export function App(): JSX.Element {
   const [settings] = useState(loadSettings);
-  const [opening] = useState(() => initialMode(settings));
-  const [mode, setMode] = useState<TableMode | null>(opening.mode);
-  const [cornerLabel, setCornerLabel] = useState<CornerLabelMode>(settings.cornerLabel);
-  const [assistOn, setAssistOn] = useState(settings.assistOn);
-  const [explainOn, setExplainOn] = useState(settings.explainOn);
-  const [showAllClaims, setShowAllClaims] = useState(opening.showAllClaims);
-  /**
-   * Learn to Play (#30). It is a surface, not a mode: the table's own state is
-   * untouched while it is up, and leaving it — at any point, from any lesson —
-   * lands on exactly the table that was there before. `learnEntry` is read
-   * once, so a URL cannot reopen the lessons after the player has left them.
-   */
+  const [start] = useState(() => opening(settings));
+
+  const [experience, setExperience] = useState<ExperiencePath | null>(start.experience);
+  const [onboarding, setOnboarding] = useState<OnboardingPath | null>(start.onboarding);
+  const [mode, setMode] = useState<TableMode>(start.mode);
+  const [cornerLabel, setCornerLabel] = useState<CornerLabelMode>(start.cornerLabel);
+  const [assistOn, setAssistOn] = useState(start.assistOn);
+  const [explainOn, setExplainOn] = useState(start.explainOn);
+  const [showAllClaims, setShowAllClaims] = useState(start.showAllClaims);
+
   const [learnEntry] = useState(urlLearn);
-  const [learnOpen, setLearnOpen] = useState(learnEntry.open);
+  const [surface, setSurface] = useState<Surface>(learnEntry.open ? "learn" : "table");
+  const [menuOpen, setMenuOpen] = useState(false);
   /**
-   * True for the hand immediately after finishing the lessons. It only raises
-   * the guidance the table already has; it never changes a rule, and the
-   * player still makes every decision.
+   * True for the hand immediately after a walkthrough or the lessons. It only
+   * raises the guidance the table already has; it never changes a rule, and
+   * the player still makes every decision.
    */
   const [guided, setGuided] = useState(false);
   /** Whether the lessons were opened by the first-launch question. */
-  const [learnFirstRun, setLearnFirstRun] = useState(true);
+  const [learnFirstRun, setLearnFirstRun] = useState(false);
 
   /**
-   * Answering the first-launch question, and switching mode later, are the
-   * same operation. Beginner sets the learning aids on and reduces the claim
-   * band; it does not lock any of them, because DESIGN.md §21 carries "all
-   * three learning aids disable independently" as an exit criterion and PRD §9
-   * makes it a constraint. Setting them gives the requirement its actual
-   * value — nobody plays their first hand with the aids off by accident —
-   * without breaking either document.
+   * Switching table later. Beginner sets the learning aids on and reduces the
+   * claim band; it does not lock any of them, because DESIGN.md §21 carries
+   * "all three learning aids disable independently" as an exit criterion and
+   * PRD §9 makes it a constraint.
    */
   const chooseMode = useCallback((next: TableMode) => {
     const beginner = next === "beginner";
@@ -161,6 +217,32 @@ export function App(): JSX.Element {
     }
   }, []);
 
+  /**
+   * Answering the first-launch question (#33).
+   *
+   * One tap settles the table, the claim band and every aid, because §3.2
+   * asks for smart defaults rather than a setup step: a novice never chooses a
+   * rules profile, and a player who said they do not want instruction does not
+   * get a table that suggests their discards. From here on the player owns all
+   * of it from the menu and the path never overrides them again.
+   */
+  const chooseExperience = useCallback((path: ExperiencePath) => {
+    const preset = EXPERIENCE_DEFAULTS[path];
+    setExperience(path);
+    setMode(preset.mode);
+    setShowAllClaims(preset.showAllClaims);
+    setAssistOn(preset.assistOn);
+    setExplainOn(preset.explainOn);
+    setCornerLabel(preset.cornerLabel);
+    setOnboarding(preset.onboarding);
+    setSurface("table");
+    if (preset.onboarding === null) {
+      // Nothing to resume later: this player answered by declining teaching.
+      const stored = loadTutorial();
+      saveTutorial({ ...stored, onboarding: null, onboardingDone: true });
+    }
+  }, []);
+
   // Written on every change, including the one that answers the first-launch
   // question — the answer must survive a kill immediately after the tap.
   //
@@ -169,131 +251,140 @@ export function App(): JSX.Element {
   // its default here instead of failing to compile.
   useEffect(() => {
     saveSettings({
-      version: 2,
+      version: 3,
       cornerLabel,
       assistOn,
       explainOn,
+      experience,
       mode,
       showAllClaims,
     });
-  }, [cornerLabel, assistOn, explainOn, mode, showAllClaims]);
+  }, [cornerLabel, assistOn, explainOn, experience, mode, showAllClaims]);
 
   /**
-   * Opening Learn to Play from the first-launch question.
+   * The end of a walkthrough, by finishing it or by skipping it.
    *
-   * It answers the question as well as opening the lessons — the player has
-   * said they are new, which is the whole of what Beginner is for — so a kill
-   * mid-lesson lands them on a table they can learn at rather than back on the
-   * question. The graduation screen asks again once they have finished, when
-   * the answer means something to them.
+   * §6 N5: no graduation screen and no rules-profile question. The table the
+   * entry choice already settled is dealt straight away, with the scaffolding
+   * a first real hand keeps — which is the whole of what "hands directly into
+   * unscripted play" means.
    */
-  const startLearning = useCallback(() => {
-    chooseMode("beginner");
-    setLearnFirstRun(true);
-    setLearnOpen(true);
-  }, [chooseMode]);
+  const finishOnboarding = useCallback((completed: boolean) => {
+    setOnboarding(null);
+    setGuided(completed);
+    setSurface("table");
+  }, []);
 
-  /** Leaving the lessons for a table, with or without having finished them. */
   const leaveLearning = useCallback(
     (next: TableMode | null, wasGuided: boolean) => {
       if (next !== null) chooseMode(next);
       if (wasGuided) {
-        // Somebody arriving from the lessons gets the learning aids on
-        // whichever table they picked. `chooseMode` only does this for
-        // Beginner, and a player who has just been taught the game on the
-        // standard rules has earned the same help.
         setAssistOn(true);
         setExplainOn(true);
       }
       setGuided(wasGuided);
-      setLearnOpen(false);
+      setSurface("table");
     },
     [chooseMode],
   );
 
-  if (mode === null) {
-    return <ModeChoice onChoose={chooseMode} onLearn={startLearning} />;
-  }
-
-  if (learnOpen) {
-    return (
-      <Learn
-        cornerLabel={cornerLabel}
-        openAt={learnEntry.lesson}
-        firstRun={learnFirstRun}
-        onLeave={() => { leaveLearning(null, false); }}
-        onGraduate={(next) => { leaveLearning(next, true); }}
-      />
-    );
+  if (experience === null) {
+    return <ExperienceChoice onChoose={chooseExperience} />;
   }
 
   return (
-    <Game
+    <Shell
+      onboarding={onboarding}
+      surface={surface}
+      menuOpen={menuOpen}
       mode={mode}
       cornerLabel={cornerLabel}
       assistOn={assistOn}
       explainOn={explainOn}
       showAllClaims={showAllClaims}
       guided={guided}
+      learnEntry={learnEntry.lesson}
+      learnFirstRun={learnFirstRun}
+      onOpenMenu={() => { setMenuOpen(true); }}
+      onCloseMenu={() => { setMenuOpen(false); }}
+      onSurface={setSurface}
+      onFinishOnboarding={finishOnboarding}
       onGuidedHandEnded={() => { setGuided(false); }}
-      onLearn={() => { setLearnFirstRun(false); setLearnOpen(true); }}
+      onLeaveLearning={leaveLearning}
       onChooseMode={chooseMode}
-      onCycleLabel={() => {
-        setCornerLabel((current) => {
-          const next = LABEL_MODES[(LABEL_MODES.indexOf(current) + 1) % LABEL_MODES.length];
-          return next ?? "off";
-        });
-      }}
+      onCycleLabel={() => { setCornerLabel(nextCornerLabel); }}
       onToggleAssist={() => { setAssistOn((current) => !current); }}
       onToggleExplain={() => { setExplainOn((current) => !current); }}
       onToggleAllClaims={() => { setShowAllClaims((current) => !current); }}
+      onLearnFromMenu={() => {
+        setLearnFirstRun(false);
+        setSurface("learn");
+        setMenuOpen(false);
+      }}
     />
   );
 }
 
 /**
- * The app once a mode is settled: the table, the portrait menu, and the two
- * full-screen panels.
+ * The app once the experience question is settled: the session, the surfaces,
+ * and the menu that reaches all of them.
  *
- * Split out from App so the game session is constructed only after the mode
+ * Split out from App so the game session is constructed only after the answer
  * is known. Building it first would deal the opening hand under a default
  * profile and then persist it, and the player's answer would arrive too late
  * to matter.
  */
-function Game({
+function Shell({
+  onboarding,
+  surface,
+  menuOpen,
   mode,
   cornerLabel,
   assistOn,
   explainOn,
   showAllClaims,
   guided,
+  learnEntry,
+  learnFirstRun,
+  onOpenMenu,
+  onCloseMenu,
+  onSurface,
+  onFinishOnboarding,
   onGuidedHandEnded,
-  onLearn,
+  onLeaveLearning,
   onChooseMode,
   onCycleLabel,
   onToggleAssist,
   onToggleExplain,
   onToggleAllClaims,
+  onLearnFromMenu,
 }: {
+  readonly onboarding: OnboardingPath | null;
+  readonly surface: Surface;
+  readonly menuOpen: boolean;
   readonly mode: TableMode;
   readonly cornerLabel: CornerLabelMode;
   readonly assistOn: boolean;
   readonly explainOn: boolean;
   readonly showAllClaims: boolean;
-  /** The guided first hand, straight out of Learn to Play (#30). */
   readonly guided: boolean;
+  readonly learnEntry: LessonId | null;
+  readonly learnFirstRun: boolean;
+  readonly onOpenMenu: () => void;
+  readonly onCloseMenu: () => void;
+  readonly onSurface: (surface: Surface) => void;
+  readonly onFinishOnboarding: (completed: boolean) => void;
   readonly onGuidedHandEnded: () => void;
-  readonly onLearn: () => void;
+  readonly onLeaveLearning: (mode: TableMode | null, guided: boolean) => void;
   readonly onChooseMode: (mode: TableMode) => void;
   readonly onCycleLabel: () => void;
   readonly onToggleAssist: () => void;
   readonly onToggleExplain: () => void;
   readonly onToggleAllClaims: () => void;
+  readonly onLearnFromMenu: () => void;
 }): JSX.Element {
   const landscape = useIsLandscape();
   const [seed] = useState(initialSeed);
-  const [showRules, setShowRules] = useState(false);
-  const [showStats, setShowStats] = useState(false);
 
   const reduceActions = useCallback<ActionReducer>(
     (actions) => reducePlayerActions(actions, showAllClaims),
@@ -305,167 +396,116 @@ function Game({
   const session = useGameSession(seed, MODE_RULES[mode], reduceActions, guided ? 1.7 : 1);
   const learning = useLearningProgress();
 
-  if (showRules) {
-    return <RulesReference onClose={() => { setShowRules(false); }} />;
+  const menu = menuOpen ? (
+    <MenuSheet
+      mode={mode}
+      cornerLabel={cornerLabel}
+      assistOn={assistOn}
+      explainOn={explainOn}
+      showAllClaims={showAllClaims}
+      onClose={onCloseMenu}
+      onChooseMode={onChooseMode}
+      onCycleLabel={onCycleLabel}
+      onToggleAssist={onToggleAssist}
+      onToggleExplain={onToggleExplain}
+      onToggleAllClaims={onToggleAllClaims}
+      onRestart={() => { session.restart(newMatchSeed()); onCloseMenu(); }}
+      onLearn={onLearnFromMenu}
+      onRules={() => { onSurface("rules"); onCloseMenu(); }}
+      onStats={() => { onSurface("stats"); onCloseMenu(); }}
+    />
+  ) : null;
+
+  /*
+   * The secondary surfaces lay out in either orientation and are reached by a
+   * press rather than by a rotation (§4.2). Rotating while one of them is open
+   * keeps it open, which is the other half of the same promise: orientation
+   * must not silently navigate away from the surface the player is on.
+   */
+  if (surface === "rules") {
+    return (
+      <>
+        <RulesReference onClose={() => { onSurface("table"); }} />
+        {menu}
+      </>
+    );
   }
 
-  if (showStats) {
-    return <StatsView onClose={() => { setShowStats(false); }} />;
+  if (surface === "stats") {
+    return (
+      <>
+        <StatsView onClose={() => { onSurface("table"); }} />
+        {menu}
+      </>
+    );
   }
 
+  if (surface === "learn") {
+    return (
+      <>
+        <Learn
+          cornerLabel={cornerLabel}
+          openAt={learnEntry}
+          firstRun={learnFirstRun}
+          onLeave={() => { onLeaveLearning(null, false); }}
+          onGraduate={(next) => { onLeaveLearning(next, true); }}
+        />
+        {menu}
+      </>
+    );
+  }
+
+  /*
+   * Portrait, while a table or a walkthrough is live.
+   *
+   * Only the render swaps: the session, the hand, any pending claim and the
+   * walkthrough's phase are all still mounted behind this, so rotating back
+   * returns the exact position that was there. That is the difference between
+   * a holding state and navigation, and it is the whole of what §4.2 asks for.
+   */
   if (!landscape) {
     return (
-      <div className="portrait" data-beginner={mode === "beginner"}>
-        <h1 className="portrait__title">
-          <span className="portrait__han" aria-hidden="true">麻雀</span>
-          Mahjong
-        </h1>
-        <p className="portrait__note">Hong Kong Old Style</p>
+      <>
+        <RotateNotice
+          onMenu={onOpenMenu}
+          beginner={mode === "beginner"}
+          teaching={onboarding !== null}
+        />
+        {menu}
+      </>
+    );
+  }
 
-        <p className="portrait__prompt">
-          Turn the phone sideways to play. Fourteen tiles have to be readable at
-          once, and portrait cannot seat them at a size worth reading.
-        </p>
-
-        <div className="portrait__settings">
-          <div className="portrait__setting">
-            <span id="table-mode">Table</span>
-            <button
-              type="button"
-              className="portrait__toggle"
-              aria-describedby="table-mode"
-              onClick={() => { onChooseMode(mode === "beginner" ? "standard" : "beginner"); }}
-            >
-              {mode === "beginner" ? "Beginner" : "Standard"}
-            </button>
-          </div>
-
-          {mode === "beginner" && (
-            <div className="portrait__setting">
-              <span id="claims-mode">Chow and Kong</span>
-              <button
-                type="button"
-                className="portrait__toggle"
-                aria-describedby="claims-mode"
-                aria-pressed={showAllClaims}
-                onClick={onToggleAllClaims}
-              >
-                {showAllClaims ? "Shown" : "Hidden"}
-              </button>
-            </div>
-          )}
-
-          <div className="portrait__setting">
-            <span id="new-match">New match</span>
-            <button
-              type="button"
-              className="portrait__toggle"
-              aria-describedby="new-match"
-              onClick={() => { session.restart(newMatchSeed()); }}
-            >
-              Restart
-            </button>
-          </div>
-
-          <div className="portrait__setting">
-            <span id="assist-mode">Assist</span>
-            <button
-              type="button"
-              className="portrait__toggle"
-              aria-describedby="assist-mode"
-              aria-pressed={assistOn}
-              onClick={onToggleAssist}
-            >
-              {assistOn ? "On" : "Off"}
-            </button>
-          </div>
-
-          <div className="portrait__setting">
-            <span id="explain-mode">Explain</span>
-            <button
-              type="button"
-              className="portrait__toggle"
-              aria-describedby="explain-mode"
-              aria-pressed={explainOn}
-              onClick={onToggleExplain}
-            >
-              {explainOn ? "On" : "Off"}
-            </button>
-          </div>
-
-          <div className="portrait__setting">
-            <span id="label-mode">Corner labels</span>
-            <button
-              type="button"
-              className="portrait__toggle"
-              aria-describedby="label-mode"
-              onClick={onCycleLabel}
-            >
-              {LABEL_NAME[cornerLabel]}
-            </button>
-          </div>
-
-          <div className="portrait__setting">
-            <span id="learn-link">Learn to play</span>
-            <button
-              type="button"
-              className="portrait__toggle"
-              aria-describedby="learn-link"
-              onClick={onLearn}
-            >
-              Lessons
-            </button>
-          </div>
-
-          <div className="portrait__setting">
-            <span id="rules-link">Full rules</span>
-            <button
-              type="button"
-              className="portrait__toggle"
-              aria-describedby="rules-link"
-              onClick={() => { setShowRules(true); }}
-            >
-              Reference
-            </button>
-          </div>
-
-          <div className="portrait__setting">
-            <span id="stats-link">Stats</span>
-            <button
-              type="button"
-              className="portrait__toggle"
-              aria-describedby="stats-link"
-              onClick={() => { setShowStats(true); }}
-            >
-              View
-            </button>
-          </div>
-        </div>
-        <p className="portrait__hint">
-          Changing the table changes the rules for your next match, not the one
-          you are in — Restart deals a new one straight away. Assist highlights
-          legal actions and can suggest a discard. Explain shows a short note
-          the first time a rule matters. Corner labels are a learning layer
-          over the traditional face. None is ever required to make a legal move.
-          The lessons can be replayed as often as you like and never affect the
-          match you are in.
-        </p>
-      </div>
+  if (onboarding !== null) {
+    return (
+      <>
+        <Onboarding
+          path={onboarding}
+          cornerLabel={cornerLabel}
+          onFinish={onFinishOnboarding}
+          onMenu={onOpenMenu}
+        />
+        {menu}
+      </>
     );
   }
 
   return (
-    <TableView
-      session={session}
-      cornerLabel={cornerLabel}
-      matchSeed={seed}
-      assistOn={assistOn}
-      explainOn={explainOn}
-      learning={learning}
-      mode={mode}
-      claimsReduced={!showAllClaims}
-      guided={guided}
-      onGuidedHandEnded={onGuidedHandEnded}
-    />
+    <>
+      <TableView
+        session={session}
+        cornerLabel={cornerLabel}
+        matchSeed={seed}
+        assistOn={assistOn}
+        explainOn={explainOn}
+        learning={learning}
+        mode={mode}
+        claimsReduced={!showAllClaims}
+        guided={guided}
+        onGuidedHandEnded={onGuidedHandEnded}
+        onMenu={onOpenMenu}
+      />
+      {menu}
+    </>
   );
 }

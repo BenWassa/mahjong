@@ -11,8 +11,26 @@ import { seatPosition, seatPositionName, windName } from "../game/labels";
  * Turn ownership is stated in words and marked with a filled bar. It is the
  * one piece of state the player checks most often, so it is the only thing in
  * the strip that changes weight.
+ *
+ * It also carries the **Menu** button (#33). `ONBOARDING_DESIGN.md` §4.2
+ * requires a visible, conventional route from the landscape table to settings,
+ * Learn, the rules and stats, because the previous route was to rotate the
+ * phone — a command nothing announced and nobody would guess. The strip is
+ * where it belongs: it is the one band that is on screen at every tier, it is
+ * already the table's chrome rather than its felt, and a control in the top
+ * corner is where a player looks for a menu in any other game.
  */
-export function StatusStrip({ view }: { readonly view: PublicGameState }): JSX.Element {
+export function StatusStrip({
+  view,
+  onMenu = null,
+}: {
+  readonly view: PublicGameState;
+  /**
+   * Opens the menu. Null on a surface that has its own way out — the
+   * walkthrough carries its own Menu button beside its Skip control.
+   */
+  readonly onMenu?: (() => void) | null;
+}): JSX.Element {
   const self = view.players[view.viewer];
   const turn =
     view.phase.kind === "awaiting-claims"
@@ -49,6 +67,16 @@ export function StatusStrip({ view }: { readonly view: PublicGameState }): JSX.E
         />
         {turn}
       </span>
+      {onMenu !== null && (
+        <button
+          type="button"
+          className="status__menu"
+          onClick={onMenu}
+          data-teach="menu"
+        >
+          Menu
+        </button>
+      )}
     </header>
   );
 }
