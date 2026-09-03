@@ -7,12 +7,19 @@
 > table de-clutter in §24. The real-device gate this
 > document has always deferred to #11 remains open — see the foot of this
 > document.
+> **Issue #33 reopens first-run onboarding and orientation. For those topics,
+> [`ONBOARDING_DESIGN.md`](ONBOARDING_DESIGN.md) is the approved next-state
+> authority and supersedes stale assumptions in §§21, 23–25; those sections
+> remain below as records of the currently implemented app until the follow-on
+> implementation lands.**
 > Where this document and `app/` disagree, one of them is a bug. Where this
 > document and [`HKOS_RULES.md`](HKOS_RULES.md) disagree about game behaviour,
 > the rules contract wins and this document is wrong.
 
 This records decisions, not aspirations. Every value below is implemented, and
 most of them are asserted by a test named in the section that states them.
+The sole exception is the explicitly marked #33 authority note in §26, which
+records approved future product direction without claiming it is implemented.
 
 ## Contents
 
@@ -41,6 +48,7 @@ most of them are asserted by a test named in the section that states them.
 - [23. Capacitor Android packaging (#11)](#23-capacitor-android-packaging-11)
 - [24. Beginner mode and the table de-clutter](#24-beginner-mode-and-the-table-de-clutter)
 - [25. Learn to Play (#30)](#25-learn-to-play-30)
+- [26. Onboarding authority (#33)](#26-onboarding-authority-33)
 
 ---
 
@@ -1198,3 +1206,52 @@ player may reach a table.
   where they differ.
 
 ---
+
+## 26. Onboarding authority (#33)
+
+Issue #33 is documentation-only: it deliberately changes product authority
+before it changes code. The current behavior recorded in §§21, 23–25 therefore
+remains useful implementation history, but it is **not** the design target for
+the follow-on onboarding work where it conflicts with
+[`ONBOARDING_DESIGN.md`](ONBOARDING_DESIGN.md).
+
+The following stale assumptions are superseded:
+
+- first-run Learn opening on a lesson menu instead of a continuous novice path;
+- treating the full table as equally salient before the learner has a spatial
+  map of own hand, target shape, discard area, opponents, and turn ownership;
+- relying on a detached top coach as the sole direction to an object elsewhere
+  on the table;
+- introducing most claim terminology before it is required for an action;
+- using Peek/all opponent hands as part of the mandatory novice information
+  model;
+- asking a true novice to make a Beginner-versus-Standard rules-profile choice
+  before they understand normal play;
+- returning to curriculum/graduation ceremony instead of flowing from the
+  scripted loop directly into the first unscripted hand;
+- treating portrait as the menu/navigation state and physical rotation as the
+  way to reach Learn, settings, rules, or stats;
+- allowing portrait tutorial table layout to teach a spatial arrangement that
+  the production table does not use.
+
+The following foundations remain authoritative:
+
+- landscape production gameplay and readable non-scrolling hand geometry;
+- Beginner as the existing one-axis `minimumFaan: 0` simplification;
+- production-engine scenarios and legal-action authority;
+- wrong-answer safety and deterministic teaching positions;
+- normal redaction and bot public-state boundaries;
+- replayable, non-gating learning material;
+- Assist, Explain, corner labels, rules reference, persistence, accessibility,
+  reduced motion, offline PWA, and Capacitor constraints.
+
+`ONBOARDING_DESIGN.md` now owns the first “aha” moment, the required **Your
+table** orientation phase, novice/rusty/confident entry paths, progressive
+disclosure, spotlight/callout behavior, Peek’s optional role, terminology
+order, the handoff into unscripted play, and the replacement of
+rotation-as-navigation while retaining landscape gameplay.
+
+Automated checks can prove legality, layout, accessibility, persistence, and
+regressions. They cannot prove comprehension. The real-human transfer test in
+`ONBOARDING_DESIGN.md` is the required future evidence before the redesigned
+flow may be called novice-validated.
