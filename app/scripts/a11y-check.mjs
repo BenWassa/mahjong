@@ -159,8 +159,15 @@ else {
 
 // 5. No hidden information is in the DOM at all, not merely unpainted.
 const leaked = await page.evaluate(() => {
+  // Exposed melds are excluded: they name their tiles on purpose, which is
+  // what claiming costs. Only the concealed portion of a seat must be
+  // unidentifiable, and there it is a count.
   const seats = [...document.querySelectorAll(".seat")];
-  return seats.filter((node) => /of (Characters|Bamboo|Dots)/.test(node.innerHTML)).length;
+  return seats.filter((node) => {
+    const seat = node.cloneNode(true);
+    for (const melds of seat.querySelectorAll(".seat__melds")) melds.remove();
+    return /of (Characters|Bamboo|Dots)/.test(seat.innerHTML);
+  }).length;
 });
 if (leaked > 0) note(`${leaked} opponent seats contain identified concealed tiles`);
 
@@ -320,7 +327,11 @@ await page.evaluate(() => {
   await winPage.waitForSelector(".coach");
   const leakedInLesson = await winPage.evaluate(() => {
     const seats = [...document.querySelectorAll(".seat")];
-    return seats.filter((node) => /of (Characters|Bamboo|Dots)/.test(node.innerHTML)).length;
+    return seats.filter((node) => {
+      const seat = node.cloneNode(true);
+      for (const melds of seat.querySelectorAll(".seat__melds")) melds.remove();
+      return /of (Characters|Bamboo|Dots)/.test(seat.innerHTML);
+    }).length;
   });
   if (leakedInLesson > 0) {
     note(`${leakedInLesson} seats in the "win" lesson contain identified concealed tiles`);

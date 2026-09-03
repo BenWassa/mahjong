@@ -24,7 +24,7 @@ import type { CornerLabelMode } from "../tiles/Tile";
 import { Attention } from "./Attention";
 import { OnboardingCoach } from "./OnboardingCoach";
 import type { CalloutRung } from "./placement";
-import { teachSelector } from "./targets";
+import { teachSelector, type TeachKey } from "./targets";
 import type { TutorialHandle } from "./useTutorial";
 
 const OPPONENT_SEATS: readonly Seat[] = [1, 2, 3];
@@ -123,32 +123,50 @@ export function OnboardingView({
     [act],
   );
 
-  const offered =
-    view.phase.kind === "awaiting-claims" || view.phase.kind === "awaiting-rob"
-      ? view.phase.pendingTile
-      : null;
-
   const seatFor = (position: "left" | "across" | "right"): Seat =>
     OPPONENT_SEATS.find((seat) => seatPosition(seat, view.viewer) === position) ?? 1;
 
   /*
    * What the current step is pointing at, and what must not be covered.
    *
-   * The claim band is only a decision input while a claim is actually offered.
-   * Treating it as permanently sacred would push every callout in the
-   * walkthrough down a rung for nothing — §5.5 protects live decision inputs,
-   * not reserved empty space.
+   * The protected set is derived from what is *live* rather than declared by
+   * each step. §5.5 protects the decision inputs a player is using right now,
+   * and which those are is a property of the position, not of the sentence: the
+   * hand always, the offered tile whenever there is one, and the claim band
+   * while it holds controls.
+   *
+   * Deriving it here rather than per-step is the point. A step whose author
+   * forgot to list the offered tile put a callout over the very tile it was
+   * telling the player to decide about — which is exactly what happened to the
+   * Pass step, and what the rendered QA pass caught. A step can still add to
+   * this list; it cannot subtract from it.
+   *
+   * The claim band is deliberately not protected while it is empty. It reserves
+   * its height whether or not it holds anything (§DESIGN 14), and treating
+   * reserved space as sacred would push every callout in the walkthrough down a
+   * rung for nothing.
    */
+  const offered =
+    view.phase.kind === "awaiting-claims" || view.phase.kind === "awaiting-rob"
+      ? view.phase.pendingTile
+      : null;
+
   const focus = step.focus;
   const targets = useMemo(
     () => focus?.targets(view) ?? [],
     [focus, view],
   );
+  const hasOffer = offered !== null;
+  const claimsLive = claims.length > 0;
   const protect = useMemo(() => {
-    const keys = focus?.protect ?? [];
-    const live = keys.filter((key) => key !== "claims" || claims.length > 0);
-    return [teachSelector("hand"), ...live.map(teachSelector)];
-  }, [focus, claims.length]);
+    const live: TeachKey[] = ["hand"];
+    if (hasOffer) live.push("offer");
+    if (claimsLive) live.push("claims");
+    for (const key of focus?.protect ?? []) {
+      if (!live.includes(key)) live.push(key);
+    }
+    return live.map(teachSelector);
+  }, [focus, hasOffer, claimsLive]);
 
   // The note replaces the instruction once the step is satisfied, so the
   // anchored sentence goes with it: keeping "tap this tile" beside a tile that

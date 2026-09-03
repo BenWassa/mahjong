@@ -739,11 +739,20 @@ async function walkOnboarding(page, viewport, path, steps) {
         // reveals a seat, so there is no control and no overlay (§8.1).
         peekControl: document.querySelector(".coach__peek") !== null,
         openHands: document.querySelectorAll(".openseat__hand").length,
-        // The same leak guard the production table gets. A seat rail naming a
-        // suited tile is a concealed hand on screen.
-        namedSeatTiles: [...document.querySelectorAll(".seat")].filter((node) =>
-          /of (Characters|Bamboo|Dots)/.test(node.innerHTML),
-        ).length,
+        /*
+         * The leak guard, minus the part of a seat that is public.
+         *
+         * An *exposed* meld names its tiles on purpose — that is the price of
+         * claiming, and the production table has always drawn it. What must
+         * never be identifiable is the concealed portion, which is a count.
+         * Testing the whole seat flagged an opponent's exposed chow as a leak
+         * the moment the walkthrough's claim phase produced one.
+         */
+        namedSeatTiles: [...document.querySelectorAll(".seat")].filter((node) => {
+          const seat = node.cloneNode(true);
+          for (const melds of seat.querySelectorAll(".seat__melds")) melds.remove();
+          return /of (Characters|Bamboo|Dots)/.test(seat.innerHTML);
+        }).length,
         menu: document.querySelector('[data-teach="menu"]') !== null,
       };
     });
