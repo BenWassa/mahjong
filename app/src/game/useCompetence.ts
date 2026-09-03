@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { loadTutorial, saveTutorial } from "./persistence";
-import { NO_COMPETENCE, type DemonstratedCompetence } from "./scaffold";
+import type { DemonstratedCompetence } from "./scaffold";
 
 /**
  * Watches what the player actually does, so the scaffolding can fade because
@@ -67,5 +67,3 @@ export function useDemonstratedCompetence(): CompetenceHandle {
 
   return { ...stored, observe };
 }
-
-export { NO_COMPETENCE };
