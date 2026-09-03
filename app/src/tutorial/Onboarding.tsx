@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, type JSX } from "react";
 
+import { RotateNotice } from "../components/RotateNotice";
 import type { OnboardingPath } from "../game/experience";
 import { loadTutorial, saveTutorial } from "../game/persistence";
 import type { CornerLabelMode } from "../tiles/Tile";
@@ -22,15 +23,27 @@ import { useTutorialRunner } from "./useTutorial";
  * deterministic and always coherent, where persisted mid-scenario engine state
  * would have to survive a schema change to stay correct and would drop them
  * into a half-finished position they have lost the context for.
+ *
+ * Rotation is not one of those interruptions, and this component owns the
+ * portrait case itself rather than letting a caller swap it out. §4.2 requires
+ * a live surface to *hold* when the phone turns, and the walkthrough's engine
+ * state lives in the runner below — unmounting to render a rotate notice
+ * elsewhere would silently restart the phase while the notice claimed nothing
+ * had moved. So portrait renders the notice from in here, with the runner
+ * still mounted underneath it and its pacing paused, which is the same thing
+ * Peek does for the same reason.
  */
 export function Onboarding({
   path,
   cornerLabel,
+  landscape,
   onFinish,
   onMenu,
 }: {
   readonly path: OnboardingPath;
   readonly cornerLabel: CornerLabelMode;
+  /** False while the phone is upright; the walkthrough holds rather than ends. */
+  readonly landscape: boolean;
   /**
    * Leaving, whether by finishing or by skipping. Either way the learner
    * lands on the table their entry choice selected, and the walkthrough is
@@ -63,6 +76,20 @@ export function Onboarding({
   const tutorial = useTutorialRunner(phase, true);
 
   /*
+   * Hold the pacing while the table is not on screen.
+   *
+   * An opponent moving behind the rotate notice would change the position the
+   * learner comes back to, and would do it out of sight; the hint ladder would
+   * meanwhile count a phone in a pocket as hesitation. `setPaused` already
+   * handles both — it stops the pump and banks the elapsed idle time — and is
+   * what Peek uses for exactly this.
+   */
+  const { setPaused } = tutorial;
+  useEffect(() => {
+    setPaused(!landscape);
+  }, [landscape, setPaused]);
+
+  /*
    * A finished phase rolls straight into the next one, and the last one hands
    * over to a real hand. Driven off the runner's own `finished` flag rather
    * than off a click, so a phase that advances itself (§5.3) ends the same way
@@ -74,6 +101,10 @@ export function Onboarding({
     if (index + 1 < phases.length) setIndex(index + 1);
     else leave(true);
   }, [finished, index, phases.length, leave]);
+
+  if (!landscape) {
+    return <RotateNotice onMenu={onMenu} teaching />;
+  }
 
   return (
     <OnboardingView

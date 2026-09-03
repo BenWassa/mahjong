@@ -324,33 +324,35 @@ function Shell({
   /*
    * Portrait, while a table or a walkthrough is live.
    *
-   * Only the render swaps: the session, the hand, any pending claim and the
-   * walkthrough's phase are all still mounted behind this, so rotating back
-   * returns the exact position that was there. That is the difference between
-   * a holding state and navigation, and it is the whole of what §4.2 asks for.
+   * Only the render swaps: the session lives here in `Shell`, so the match,
+   * the hand and any pending claim are all still mounted behind this and
+   * rotating back returns the exact position. That is the difference between a
+   * holding state and navigation, and it is the whole of what §4.2 asks for.
+   *
+   * The walkthrough is deliberately *not* swapped out here. Its engine state
+   * lives inside `Onboarding`, so rendering a notice in its place would
+   * unmount the runner and silently restart the phase — while the notice said
+   * nothing had moved. It stays mounted and draws its own portrait state.
    */
-  if (!landscape) {
-    return (
-      <>
-        <RotateNotice
-          onMenu={onOpenMenu}
-          beginner={mode === "beginner"}
-          teaching={onboarding !== null}
-        />
-        {menu}
-      </>
-    );
-  }
-
   if (onboarding !== null) {
     return (
       <>
         <Onboarding
           path={onboarding}
           cornerLabel={cornerLabel}
+          landscape={landscape}
           onFinish={onFinishOnboarding}
           onMenu={onOpenMenu}
         />
+        {menu}
+      </>
+    );
+  }
+
+  if (!landscape) {
+    return (
+      <>
+        <RotateNotice onMenu={onOpenMenu} beginner={mode === "beginner"} />
         {menu}
       </>
     );

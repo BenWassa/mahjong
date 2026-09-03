@@ -780,6 +780,30 @@ async function walkOnboarding(page, viewport, path, steps) {
     if (step < 4) await capture(page, viewport, `onboard-${path}-${String(step)}`);
     await assertGeometry(page, `onboarding-${path}`, viewport);
 
+    /*
+     * Rotating away and back holds the phase.
+     *
+     * The walkthrough's engine state lives inside its own component, so a
+     * portrait state rendered *in place of* it would unmount the runner and
+     * silently restart the phase — while the notice on screen said nothing had
+     * moved. Checked once per walk, midway, where there is a phase to lose.
+     */
+    if (step === 3) {
+      const before = (await page.$eval(".coach__prompt", (n) => n.textContent).catch(() => null)) ?? "";
+      await page.setViewportSize({ width: viewport.height, height: viewport.width });
+      await page.waitForTimeout(250);
+      if ((await page.$(".portrait")) === null) {
+        finding("high", "navigation", "The walkthrough does not hold in portrait", where);
+      }
+      await capture(page, { id: `${viewport.id}-portrait`, width: viewport.height, height: viewport.width, insets: null }, `onboard-${path}-held`);
+      await page.setViewportSize({ width: viewport.width, height: viewport.height });
+      await page.waitForTimeout(250);
+      const after = (await page.$eval(".coach__prompt", (n) => n.textContent).catch(() => null)) ?? "";
+      if (after !== before) {
+        finding("high", "navigation", "Rotating away and back restarted the walkthrough phase", where);
+      }
+    }
+
     // Advance the way a player would, preferring whatever the step is asking
     // for. The independent turn deliberately accepts several tiles and refuses
     // the ones that damage the hand, so a blind first-enabled-slot walk would
