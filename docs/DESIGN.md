@@ -7,12 +7,20 @@
 > table de-clutter in §24. The real-device gate this
 > document has always deferred to #11 remains open — see the foot of this
 > document.
-> Where this document and `app/` disagree, one of them is a bug. Where this
-> document and [`HKOS_RULES.md`](HKOS_RULES.md) disagree about game behaviour,
-> the rules contract wins and this document is wrong.
+> **Issue #33 reopens first-run onboarding and orientation.** Where §§21,
+> 23–25 describe first-run structure, portrait-as-menu navigation, or the
+> current Learn sequence, [`ONBOARDING_DESIGN.md`](ONBOARDING_DESIGN.md) is the
+> authority for the next implementation and supersedes those assumptions.
+> Until that implementation lands, those sections still accurately record the
+> current app rather than the approved target state.
+> Where this document and `app/` disagree outside that explicitly-unimplemented
+> #33 direction, one of them is a bug. Where this document and
+> [`HKOS_RULES.md`](HKOS_RULES.md) disagree about game behaviour, the rules
+> contract wins and this document is wrong.
 
-This records decisions, not aspirations. Every value below is implemented, and
-most of them are asserted by a test named in the section that states them.
+This records implemented decisions except for the explicitly marked #33 target
+state in §26 and `ONBOARDING_DESIGN.md`. Most implemented values below are
+asserted by a test named in the section that states them.
 
 ## Contents
 
@@ -41,6 +49,7 @@ most of them are asserted by a test named in the section that states them.
 - [23. Capacitor Android packaging (#11)](#23-capacitor-android-packaging-11)
 - [24. Beginner mode and the table de-clutter](#24-beginner-mode-and-the-table-de-clutter)
 - [25. Learn to Play (#30)](#25-learn-to-play-30)
+- [26. Onboarding authority (#33)](#26-onboarding-authority-33)
 
 ---
 
@@ -168,6 +177,8 @@ reads as a rendering fault.
 
 Portrait is reported as portrait and routed to the menu surface rather than
 squeezed: 14 tiles in a 412px width is 25px per tile, below the readable floor.
+**This sentence records the current implementation; #33 supersedes portrait
+rotation as a navigation mechanism. See §26.**
 
 ## 4a. The responsive priority policy
 
@@ -648,9 +659,9 @@ accident — without breaking either document.
 
 Three independent controls, each default on for the author's initial learning
 period, none ever required to make a legal move: **Assist**, **Explain**, and
-**corner labels** (§10). All three switch off independently from the portrait
-menu, which is already this app's settings surface (§1) — no new landscape
-chrome was added, so the validated table from §3–§17 is unchanged.
+**corner labels** (§10). All three currently switch off independently from the
+portrait menu. **The learning-aid independence remains authoritative; the
+portrait-menu routing does not — see §26.**
 
 **Assist** decorates options the player could already see and take; it never
 gates one. A legal claim carries one more non-colour signal — a fine brass
@@ -698,14 +709,18 @@ verbatim, through a purpose-built markdown-lite reader
 (`app/src/game/markdown-lite.ts`) rather than a hand-transcribed copy: the
 document is imported as a raw string at build time
 (`app/src/game/hkosRules.ts`), so the reference is the same bytes as the
-rules contract and cannot silently drift from it. It is reachable only from
-the portrait menu and works fully offline, like the rest of the PWA (§19).
+rules contract and cannot silently drift from it. It is currently reachable
+from the portrait menu and works fully offline, like the rest of the PWA
+(§19). **#33 keeps the same reference but requires it to be reachable through a
+conventional menu without physical rotation.**
 
 ### Exit criteria carried forward from #9
 
-- A first-time player can understand why a core action occurred, without a
-  pre-game tutorial flow.
-- All three learning aids disable independently and default on.
+- A first-time player can understand why a core action occurred. **#33
+  supersedes the old assumption that this must happen without a pre-game
+  onboarding flow; the new authority is `ONBOARDING_DESIGN.md`.**
+- All three learning aids disable independently and default on where their
+  selected player path calls for them.
 - Traditional tile faces remain visually primary; corner labels are still the
   only layer added over them (§10).
 - The rules reference matches `docs/HKOS_RULES.md` exactly, by construction.
@@ -768,11 +783,11 @@ player's own wins), the player's most frequent scoring patterns, and deal-in
 count (a hand where the player's own discard, or a kong of theirs that was
 robbed, supplied the winning tile). The function never reads storage or the
 live session itself, so it structurally cannot influence gameplay. It is
-read, not derived incrementally, by a **Stats** screen reachable from the
-portrait menu — the same settings surface as Assist, Explain, corner labels
-and the rules reference — and reuses that reference's full-screen shell
+read, not derived incrementally, by a **Stats** screen currently reachable
+from the portrait menu — the same settings surface as Assist, Explain, corner
+labels and the rules reference — and reuses that reference's full-screen shell
 (`.rules`, `app/src/styles/learning.css`) rather than introducing a second
-overlay chrome.
+overlay chrome. **#33 changes the route to that surface, not the stats model.**
 
 ### Exit criteria carried forward from #10
 
@@ -799,14 +814,14 @@ entirely in `vite.config.ts`'s base-path selection.
 **Identity.** `capacitor.config.ts`: appId `com.benwassa.mahjong`, appName
 "Mahjong", matching the PWA manifest's `short_name`.
 
-**Orientation is deliberately not locked** at the Android Activity level.
-The table is landscape-only, but the settings/learning/rules/stats menu is
-the portrait surface (§1, §21, §22), reached by physically rotating the
-phone — exactly as it already works in the browser. Locking `MainActivity`
-to landscape would make that whole menu unreachable on Android, so it is
-left at Android's default ("unspecified"), and `useIsLandscape()`
-(`app/src/App.tsx`) stays the only place orientation is judged, for both
-surfaces alike.
+**Current orientation behavior is deliberately not locked** at the Android
+Activity level because the implemented app uses portrait as its secondary
+surface. **That rationale is superseded for the next onboarding/navigation
+implementation by #33.** The target product keeps landscape gameplay but no
+longer uses physical rotation as its menu command; see §26 and
+`ONBOARDING_DESIGN.md`. Whether the next native shell technically locks the
+Activity is an implementation choice, provided screen identity is independent
+of orientation and state is preserved.
 
 **Template gaps the generated project shipped with, fixed:**
 
@@ -892,16 +907,12 @@ over the default table for labels that were saying nothing.
 
 ### Entry
 
-One screen, one question, two buttons, no steps — PRD §9 rules out a tutorial
-flow, and this is the smallest thing that can route a new player to a table
-they can actually learn at. It renders ahead of the orientation split, so it
-works in whichever orientation the phone is in on a first launch; its own
-layout is a single centred column capped in `ch`, which is what lets one
-layout fit both without a breakpoint (§4).
-
-Asked exactly once. A stored mode *is* the record that the question was
-answered, which is why it is `TableMode | null` rather than a mode plus a
-separate "has been asked" flag: two fields can disagree, one cannot.
+The current implementation starts with a mode-oriented question rendered ahead
+of the orientation split. **#33 supersedes that first-run entry model.** The
+next implementation segments by prior experience — New to Mahjong, Played
+before/refresh, Start playing — and does not ask a true novice to select a rules
+profile before they understand the game. Beginner itself remains a valid rules
+profile and remains the novice default after onboarding.
 
 `?mode=beginner|standard` stands in for the tap, alongside the existing
 `?seed=`. It carries the whole of the choice, reduced claim band included — a
@@ -963,7 +974,13 @@ the itemised faan breakdown (§16).
 
 ## 25. Learn to Play (#30)
 
-An interactive onboarding that takes somebody who has never played from
+This section records the **currently implemented** five-lesson Learn system and
+its correctness boundaries. **It is not the target first-run information
+architecture after #33.** The approved next-state sequence, attention model,
+Peek role, terminology ladder, orientation behavior, and human-comprehension
+gate are defined in [`ONBOARDING_DESIGN.md`](ONBOARDING_DESIGN.md).
+
+An interactive onboarding currently takes somebody who has never played from
 nothing to a real hand, in five short lessons and about six minutes.
 
 The rule it is built on, from the issue: **teach by changing the game state,
@@ -976,20 +993,22 @@ still the place prose lives.
 
 ### Entry
 
-The first-launch question (§24) grows a third door and keeps its shape: one
-screen, one question, no steps. Learn to Play leads because it is the
+The current first-launch question (§24) grows a third door and keeps its shape:
+one screen, one question, no steps. Learn to Play leads because it is the
 recommendation; the two "I know mahjong" doors go straight to a table.
+**#33 supersedes the lesson-menu-first novice path: the future novice path is
+linear and bypasses the lesson picker until after first-run onboarding.**
 
-Every one of the three writes a mode, so `TableMode | null` remains the single
-field recording that the question was asked — the §24 argument against a mode
-plus a separate "has been asked" flag still holds. Choosing Learn writes
-`beginner`, because the player has just said they are new, which is the whole
-of what Beginner is for; a kill mid-lesson therefore lands them on a table
-they can learn at rather than back on the question.
+Every one of the three currently writes a mode, so `TableMode | null` remains
+the single field recording that the question was asked. Choosing Learn writes
+`beginner`, because the player has just said they are new. #33 keeps Beginner
+as the novice handoff default but no longer exposes that rules-profile choice
+as first-run setup.
 
-Learn is reachable forever afterwards from the portrait menu, and every lesson
-is replayable. Nothing about onboarding gates the game: there is no screen in
-it without a way out, and completing it is never required to reach a table.
+Learn remains reachable forever afterwards and every lesson remains replayable.
+Nothing about onboarding gates the game: there is no screen in it without a way
+out, and completing it is never required to reach a table. **The future route
+to Learn is a conventional Menu affordance, not physical rotation (§26).**
 
 `?learn=1` opens the menu and `?learn=<lesson id>` opens one lesson, alongside
 the existing `?seed=` and `?mode=`. Like `?mode=`, they answer the first-launch
@@ -1066,26 +1085,26 @@ and one nobody answers stalls the table for good.
 | 4. Taking other players' tiles | Pung, Chow, Kong, pass, and the Chow restriction | Five claims in a row, each set up by an opponent throwing the tile that completes a shape already in the player's hand — including one that is *not* claimable, thrown from the wrong seat. |
 | 5. Declaring a win | Recognising and calling a complete hand | A hand one tile away; an opponent throws it; the player declares. |
 
-All five run under the **standard** profile. A lesson taught at Beginner's
-zero-faan floor would be teaching a simplified rule as though it were the game,
-which #30 rules out. The one place the floor could bite — declaring the win —
-uses a hand built around a Red Dragon pung, worth one faan on its own, so it
-clears the real minimum.
+All five currently run under the **standard** profile. A lesson taught at
+Beginner's zero-faan floor would be teaching a simplified rule as though it were
+the game. The one place the floor could bite — declaring the win — uses a hand
+built around a Red Dragon pung, worth one faan on its own, so it clears the real
+minimum. **#33 retains the principle that teaching scenarios stay rules-correct,
+but defers minimum-faan teaching until scoring actually matters.**
 
-The graduation screen is where the two tables are told apart, and it has to be:
-a player arriving at Beginner from lessons taught under Standard needs to be
-told which rule was relaxed and that it is a starting setting. The hand after
-it is a genuine seeded match against the same bots — not a sixth scripted
-lesson — with the assist and explain layers §21 already provides, one opening
-note saying that nothing here is scripted, and the opponents paced 1.7× slower.
-It changes no rule and takes no decision away.
+The current graduation screen tells the two tables apart and then starts a
+genuine seeded match against the same bots. **#33 supersedes that graduation
+screen for true novices:** the future novice path discloses the Beginner
+simplification once and flows directly from the scripted win into an
+unscripted Beginner hand without another rules-profile decision.
 
 ### Progressive hidden information
 
-Lessons 1 to 4 play with all three opponents' hands face up, which is what lets
-a claim be explained by pointing at the tiles that caused it. Lesson 5 closes
-the table and says so out loud, so the player's last lesson is played under
-exactly the conditions the real game is played under.
+The original #30 concept described lessons 1 to 4 as playing with opponents'
+hands face up. The current responsive implementation instead keeps the
+production table compact and puts deliberately revealed hands behind Peek.
+Some current lesson copy still says those hands are face up; that is stale and
+must be removed by the next implementation.
 
 **The visibility is a separate value, not a doctored game state.** The redacted
 projection is untouched: `state(viewer)` still returns exactly what that seat
@@ -1103,20 +1122,18 @@ caller happened to pass. Learn to Play draws its own `OpenSeat` instead — and
 `OpenSeat` is only ever rendered inside the Peek overlay (below), never on the
 table.
 
-**Peek: the open hands live on their own surface.** They used to be face up in
-the seat rails for the whole lesson. On a real phone that is 13-16px per tile —
-a picture of a tile rather than a tile — so the thing the lesson exists to show
-could not be read, and it was spending the felt the discard well and the coach
-strip needed. Trying to keep every piece of information permanently visible was
-what made the table unreadable.
+**Current Peek implementation.** The open hands used to be face up in the seat
+rails for the whole lesson. On a real phone that is 13-16px per tile — a picture
+of a tile rather than a tile — so the thing the lesson existed to show could not
+be read, and it was spending the felt the discard well and the coach strip
+needed. Trying to keep every piece of information permanently visible was what
+made the table unreadable.
 
-So the lesson's table is now the production table, seat for seat, showing the
-same compact seat summaries and public state a real game shows, and the open
+So the current lesson table is the production table, seat for seat, showing the
+same compact seat summaries and public state a real game shows, while the open
 hands moved behind one control:
 
-- **`Peek hands`** sits with the lesson's own controls in the coach strip — it
-  is a thing to read, not a move, and the felt has no room for a floating
-  button over the discard well.
+- **`Peek hands`** sits with the lesson's own controls in the coach strip.
 - It opens a central overlay drawing all three revealed hands at
   `--peek-tile-w`, sized by the geometry engine for **fourteen** slots (the seat
   to play has already drawn) and floored at the same 34px the hand is. On the
@@ -1127,9 +1144,7 @@ hands moved behind one control:
 - **The lesson holds still while it is open.** `TutorialRunner.setPaused()`
   cancels the pending opponent move and re-enters the pump on resume. It is
   pacing only: no engine state is saved, copied or restored, so the position the
-  player reads is the position that is still there when they close it. An
-  opponent moving behind the overlay would change the hands they came to read,
-  and would do it out of sight.
+  player reads is the position that is still there when they close it.
 - **Every exit works**: the close control, a tap on the felt around the panel,
   Escape, and the Android back button — Peek pushes one history entry while open
   and pops it on any other close, so back never has to be pressed twice.
@@ -1139,36 +1154,33 @@ hands moved behind one control:
 - The panel carries one sentence that keeps Peek from teaching the wrong lesson:
   *a real game never shows you these*.
 
+**#33 changes Peek's product role.** It is no longer part of the mandatory
+novice path or evidence for a normal claim. If retained, it is an optional,
+explicitly-labelled teaching x-ray for a context where hidden information is
+itself the subject. See `ONBOARDING_DESIGN.md` §8.
+
 ### Layout
 
-The lesson is the production table with the coach strip in place of the status
-readout, reusing `SeatCard`, `PlayerHand`, `ClaimBand` and `DiscardWell`
-unchanged — so what the player learns to tap is the thing they will be tapping
-five minutes later, and the seats read exactly as they will at a real table. The
-coach is a strip and not a panel: the tiles a sentence is about have to be
-visible while it is read, and a panel over the table would be a slideshow with
-extra steps.
+The current lesson is the production table with the coach strip in place of the
+status readout, reusing `SeatCard`, `PlayerHand`, `ClaimBand` and `DiscardWell`
+unchanged. The tutorial obeys the same responsive priority policy and publishes
+the same `data-tier` as the table (§4a).
 
-The lesson's table top is now §3's composition exactly. It used to break the
-across seat onto its own full-width row to fit thirteen face-up tiles on one
-line; with the open hands behind Peek there is nothing left to break it for, and
-the width goes back to the discard well. The tutorial obeys the same responsive
-priority policy and publishes the same `data-tier` as the table (§4a).
+The top coach strip remains a useful place for global controls and whole-table
+messages, but **#33 supersedes it as the sole home for object-specific teaching.**
+The next implementation must tether object-specific instruction spatially to
+the hand/tile/seat/control it names, using the attention model in
+`ONBOARDING_DESIGN.md` §5.
 
-One thing still differs:
+The current tutorial additionally supports portrait by wrapping the hand into
+two rows. **That is superseded for interactive first-run teaching.** Table
+onboarding is landscape so the learner rehearses the actual production spatial
+model. Secondary Learn/reference surfaces may still reflow responsively; screen
+identity must not be chosen by physical orientation (§26).
 
-- **Portrait is a supported way to take a lesson.** The table proper sends
-  portrait to the menu because fourteen tiles cannot be seated readably across
-  a phone's short edge (§4). A lesson holds the same fourteen — so portrait
-  wraps the hand onto two rows at a readable width, rather than shrinking below
-  the 34px floor to keep one row. The override is applied to the hand row, not
-  to `.app`, so the geometry's own computed values and everything derived from
-  them are untouched.
-
-Nothing in `app/src/styles/tutorial.css` touches a rule the responsive geometry
-rests on: the 44px band, the hand's reserve and the 26px strip are unchanged,
-so §4's verified matrix still holds for the table proper. **If a change to Learn
-to Play ever forces an edit to `geometry.test.ts`, the change is wrong.**
+Nothing in `app/src/styles/tutorial.css` currently touches a rule the responsive
+geometry rests on: the 44px band, the hand's reserve and the 26px strip are
+unchanged, so §4's verified matrix still holds for the table proper.
 
 ### Persistence
 
@@ -1180,21 +1192,88 @@ rather than a settings migration — unknown ids are dropped and the rest
 survive.
 
 It records; it never gates. Nothing in the app reads it to decide whether a
-player may reach a table.
+player may reach a table. #33 retains that contract.
 
 ### Exit criteria carried forward from #30
 
+These correctness boundaries remain:
+
 - A first-time player can choose to learn or to skip, and skipping never locks
   them out of anything.
-- The core sequence is completable in roughly five to eight minutes without
-  reading a rules document.
 - Every tutorial decision executes as a legal production engine transition.
-- Opponent hands can be opened for teaching without weakening the redaction
-  guarantee or what any bot can see, and they are only ever drawn on the Peek
-  overlay, in a lesson that has declared the seats it reveals.
-- The final hand is a real engine-driven match against the existing bots, and
-  the player makes its decisions.
-- Progress persists, lessons replay, and Beginner and Standard are told apart
-  where they differ.
+- Tutorial-only opponent visibility never weakens the redaction guarantee or
+  what any bot can see.
+- The first unscripted hand is a real engine-driven match against the existing
+  bots, and the player makes its decisions.
+- Progress persists and Learn remains replayable.
+
+The old five-lessons/about-six-minutes sequence, lesson-menu-first entry,
+mandatory Peek role, portrait lesson layout, graduation rules-profile choice,
+and automation-based implication of novice usability are **not** carried
+forward. Their replacement is `ONBOARDING_DESIGN.md`.
 
 ---
+
+## 26. Onboarding authority (#33)
+
+Issue #33 separates two kinds of truth that earlier sections had accumulated in
+one document:
+
+1. **Current implementation truth** — the mechanics recorded in §§21, 23–25.
+2. **Approved next-state product direction** —
+   [`ONBOARDING_DESIGN.md`](ONBOARDING_DESIGN.md), supported by
+   [`ONBOARDING_RESEARCH.md`](ONBOARDING_RESEARCH.md).
+
+For onboarding and orientation, the second wins wherever they conflict. This is
+intentional even though the code has not changed in this documentation-only
+issue.
+
+### Superseded assumptions
+
+- “No pre-game tutorial flow” is no longer an onboarding constraint. The new
+  novice path is short, active, linear, and immediately tied to real gameplay;
+  contextual teaching still continues afterwards.
+- The five-item Learn menu is not the first-run spine. It remains a replayable
+  post-onboarding practice/reference surface.
+- The first launch does not ask a true novice to decide Beginner versus Standard.
+  It segments New / Rusty / Confident by prior experience and uses smart
+  defaults.
+- A short **Your table** orientation phase is required before asking a novice to
+  parse the complete table as equal-priority information.
+- Object-specific instructions must be spatially tethered to their target; a
+  detached top-strip sentence alone is insufficient.
+- Peek is not part of the mandatory novice information model. Claims are taught
+  from public discard + own tiles + source seat. Peek, if retained, is optional
+  teaching x-ray material.
+- Terminology follows the concept/action rather than preceding it.
+- The novice scripted path flows directly into a first unscripted Beginner hand;
+  no lesson-menu return or graduation mode chooser interrupts that transfer.
+- Physical rotation is not navigation. Landscape gameplay remains, but Menu,
+  Learn, rules, settings and stats are conventionally reachable from the
+  landscape shell. Rotating a live table to portrait preserves its state and
+  does not silently switch screens.
+- Interactive table onboarding is landscape. Responsive portrait treatment may
+  remain for non-table secondary surfaces, but orientation does not choose the
+  route.
+
+### Retained foundations
+
+- Landscape tile legibility and the responsive priority policy (§4/§4a).
+- Beginner as a one-axis rules simplification (§24).
+- Production-engine tutorial scenarios and legal-action authority (§25).
+- Wrong-answer safety and deterministic teaching positions (§25).
+- Redacted bot/public-state boundaries (§18/§25).
+- Replayable learning material and non-gating progress (§25).
+- Assist, Explain, corner labels, rules reference, persistence, accessibility,
+  reduced motion, offline PWA and Capacitor constraints.
+
+### Validation authority
+
+Automated tests can prove legality, deterministic state transitions, layout
+bounds, accessibility contracts, offline behavior and regressions. They cannot
+prove that a novice understands Mahjong or knows what to do next.
+
+The human comprehension test in `ONBOARDING_DESIGN.md` §14 is therefore the
+required future evidence before describing the redesigned onboarding as novice
+validated. Its primary evidence is explanation plus transfer to a fresh hand,
+not tutorial completion.
