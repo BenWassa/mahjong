@@ -105,6 +105,14 @@ The branches establish sensible defaults without a setup step:
 
 - Onboarding progress records progress; it never gates the table.
 - A kill or background termination must resume at a coherent phase or exit safely to the player’s chosen table, as current persistence semantics permit.
+- *Implementation-settled:* the unit of resume is the **phase**, not the step.
+  The scripted phases are short and each one is a deterministic scenario, so
+  persisting a phase identifier and replaying that phase from its start is both
+  cheaper and more coherent than persisting mid-scenario engine state — which
+  would have to survive a schema change to stay correct, and which would drop
+  the learner back into a half-finished position they no longer have the
+  context for. Relaunching mid-onboarding therefore restarts the furthest phase
+  reached; it never restarts the whole sequence and never silently skips ahead.
 - The full Learn material remains reachable later through the normal menu.
 - The replayable Learn hub may expose lessons out of order. **First run may not.**
 
@@ -138,7 +146,26 @@ Required consequences:
 
 Whether the native Activity is technically orientation-locked is an implementation decision for the next issue. The product contract is about continuity: **the player must never have to discover that rotating the hardware is the menu command.**
 
-### 4.3 First-run orientation handoff
+### 4.3 Android Back and overlay dismissal
+
+*Added during implementation analysis. #33 lists Back behavior as a constraint
+to preserve but the first-run flow introduces surfaces Back did not previously
+have to answer for.*
+
+Back is always "close the topmost thing", never "leave the product":
+
+1. an open overlay (menu sheet, Peek, rules, stats, result sheet) closes;
+2. on a scripted onboarding surface with nothing open, Back asks once — *leave
+   the walkthrough?* — rather than discarding the sequence on a stray press. A
+   novice mis-pressing Back must not lose their orientation without being asked;
+3. answering *leave* is the same operation as the visible Leave control, and
+   lands on the table the player’s entry choice selected, with progress recorded;
+4. on a plain table, Back keeps whatever behavior the app already has.
+
+Each overlay owns exactly one history entry and every exit from it routes
+through that entry, which is the contract Peek already implements.
+
+### 4.4 First-run orientation handoff
 
 If the player chooses New/Refresh while holding the phone in portrait:
 
@@ -206,6 +233,42 @@ For steps whose purpose is merely to teach the tap-tap control, immediate explic
 - Reduced motion may fade/appear instantly; motion is not required to locate the target.
 - Screen-reader ordering must place the instruction immediately before the target interaction where practical, with the target named explicitly.
 - Focus must not jump around on touch. Keyboard focus may be moved only when the next required control would otherwise be practically unreachable, following existing accessibility conventions.
+
+### 5.6 Degradation ladder when there is no room to anchor
+
+*Added during implementation analysis. The rules in §5.5 are minimums a short
+landscape phone cannot always satisfy at once: at the `tight` layout tier the
+table has already collapsed its optional bands, and a callout placed adjacent
+to the player hand has nowhere to go that is not on top of the discard well or
+the claim band. The design does not resolve that by shrinking the table — §5 of
+`DESIGN.md` forbids it and Issue #32 already proved it unreadable — so it
+resolves it by saying which half of the attention system degrades.*
+
+Spotlighting costs no layout: it is drawn over the table and moves nothing.
+Callouts cost layout. Therefore **the spotlight is what carries spatial
+tethering, and the callout is what degrades.** In descending order:
+
+1. **Anchored callout.** Placed adjacent to the spotlit target, on the side
+   with the most free space, never overlapping the target or any decision
+   input named in §5.5.
+2. **Edge callout with a pointer.** When no adjacent placement satisfies (1),
+   the callout moves to the nearest viewport edge that is not a decision input
+   and draws a leader/pointer back to the spotlit target. The target stays
+   spotlit; the sentence is still visibly *about* that object.
+3. **Global coach line, spotlight retained.** When even (2) would cover a
+   decision input, the sentence falls back to the global coach strip — but the
+   spotlight on the target must remain. This is the floor: the learner may
+   have to move their eyes from the strip to the target, but the target is
+   still unambiguously marked, so they never search the whole screen for the
+   referent.
+
+A step must never degrade past (3). A step whose teaching would be meaningless
+without an adjacent callout is a step that has to be redesigned, not shipped at
+the tight tier.
+
+The chosen rung is a property of the measured viewport and the measured target
+rectangle, not of a device allowlist, and it is re-evaluated on resize,
+rotation, and layout-tier change.
 
 ---
 
@@ -293,6 +356,15 @@ Prompt near the hand:
 > “Your turn again. Keep what helps your groups; discard what helps least.”
 
 All legally discardable tiles may remain legal. The scenario may reject a pedagogically wrong answer without mutating state, as current tutorial mechanics do, but the first prompt must give the learner an opportunity to reason before the timed hint ladder supplies the answer.
+
+*Implementation-settled:* this step’s goal must be **tolerant, not exact**. The
+earlier scripted beats teach a named tile and may test for it; N2 is testing
+whether the learner reasons, so it accepts any discard that does not damage the
+hand — every spare tile, not one designated answer — and corrects only choices
+that break the pair or a completed group, naming what the choice cost. Rejecting
+a defensible discard because it was not the single tile the author had in mind
+teaches the learner to hunt for the highlighted answer, which §14.9 lists as a
+critical failure sign.
 
 Success evidence inside the tutorial: the learner completes tap-tap on the intended tile without the explicit rescue hint.
 
@@ -425,7 +497,7 @@ When used:
 - preserve the current redaction boundary and accessibility behavior;
 - never expose it in an unscripted real hand.
 
-Current stale copy claiming opponent hands are “face up” must be removed in implementation.
+Current stale copy claiming opponent hands are “face up” must be removed in implementation. Where a retained replayable lesson still teaches with revealed hands, the copy must name the surface those hands actually live on — Peek — rather than implying they are visible on the table, and must not make reading them a precondition for the lesson’s decision.
 
 ---
 
@@ -700,4 +772,8 @@ The implementation issue is product-complete when, before human validation:
 - [ ] confident players can skip directly to Standard play;
 - [ ] Learn remains replayable after first run;
 - [ ] automated legality/layout/accessibility/offline gates are green;
+- [ ] the callout degradation ladder in §5.6 holds at the tight layout tier, with the spotlight never degrading;
+- [ ] interrupted onboarding resumes at the furthest phase reached (§3.3);
+- [ ] Back closes the topmost overlay and asks before discarding a walkthrough (§4.3);
+- [ ] the independent-turn step accepts any non-damaging discard rather than one designated tile (§6, N2);
 - [ ] human comprehension test materials are ready and the implementation is explicitly labelled **unvalidated** until real sessions run.
