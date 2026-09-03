@@ -54,6 +54,7 @@ PWA acceptance.
 | Persistence | #10 — V1.9 Local persistence, resume and basic stats | **Done** — [`DESIGN.md`](DESIGN.md) §22, `app/` |
 | PWA + Android acceptance | #11 — V1.10 Verify installable PWA and package offline Android app | Capacitor packaging built — [`DESIGN.md`](DESIGN.md) §23; real-device gate open |
 | Onboarding | #30 — Beginner onboarding: interactive Learn to Play scenarios and guided first hand | **Done** — [`DESIGN.md`](DESIGN.md) §25, `src/engine/scenario.ts`, `app/src/tutorial/` |
+| First run | #33 — Redesign first-time player onboarding and orientation | **Built, not validated** — [`ONBOARDING_DESIGN.md`](ONBOARDING_DESIGN.md), [`DESIGN.md`](DESIGN.md) §26; the human comprehension gate in [`ONBOARDING_HUMAN_TEST.md`](ONBOARDING_HUMAN_TEST.md) is open |
 
 ## Non-negotiable ordering
 
@@ -85,4 +86,6 @@ Until V1 is complete, do not add multiplayer, network services, accounts, teleme
 | #11 PWA + Android acceptance | Complete — Capacitor Android packaging built and CI-verified; real-device gate closed |
 | #26 Production Pages cutover | Complete — `app/dist` deploys to Pages from `main`; prototype no longer owns Pages |
 | #28 Beginner mode and table de-clutter | Complete — [`DESIGN.md`](DESIGN.md) §24 |
-| #30 Learn to Play onboarding | Complete — five interactive lessons on arranged-wall engine scenarios, then a guided real hand |
+| #30 Learn to Play onboarding | Complete — five interactive lessons on arranged-wall engine scenarios; since #33 they are the replayable reference library rather than the first run |
+| #32 Responsive iteration | Complete — Peek hands, the layout priority policy and the layout HUD |
+| #33 First-run onboarding and orientation | **Built, human gate open** — experience-based entry, a linear walkthrough with spatial teaching, and a landscape Menu in place of rotation-as-navigation. Automated evidence is green; novice comprehension is unproven until [`ONBOARDING_HUMAN_TEST.md`](ONBOARDING_HUMAN_TEST.md) has been run on real people |
