@@ -8,6 +8,7 @@ import type {
 } from "@engine";
 
 import type { LessonId } from "./ids";
+import type { StepFocus } from "./targets";
 
 /**
  * The five core lessons of Learn to Play (#30).
@@ -45,6 +46,37 @@ export interface LessonStepBase {
    * position it describes rather than three moves later.
    */
   readonly until?: (view: PublicGameState) => boolean;
+  /**
+   * The object this step is about, and the sentence to put beside it (#33).
+   *
+   * A step with no focus is a whole-table idea with no single target — "play
+   * moves to your right", "nothing in this hand is scripted" — and belongs in
+   * the coach strip. A step *with* a focus must never rely on the strip alone:
+   * `ONBOARDING_DESIGN.md` §5.1 puts object-specific instruction next to its
+   * object, and §5.6 says what happens when the phone has no room for it.
+   */
+  readonly focus?: StepFocus;
+  /**
+   * Progressively stronger cues for a learner who has stopped (§5.4), from
+   * soft to explicit. Empty or absent means the prompt is the only cue.
+   */
+  readonly hints?: readonly string[];
+  /**
+   * True for a step whose subject is a private interface convention rather
+   * than a judgement — tap once to lift, tap again to discard. There is
+   * nothing to reason out, so the explicit cue is shown immediately instead of
+   * making the player discover a convention nobody told them about.
+   */
+  readonly immediateHint?: boolean;
+  /**
+   * Holds the step open after it is satisfied, until the player continues.
+   *
+   * Onboarding steps otherwise advance themselves once the player has acted:
+   * §5.3 rules out a Next press after every micro-step, and the consequence
+   * note is a thing to read, not a thing to acknowledge. Set this where the
+   * note genuinely needs to be sat with.
+   */
+  readonly hold?: boolean;
 }
 
 export interface NoteStep extends LessonStepBase {
@@ -68,6 +100,19 @@ export interface IdentifyStep extends LessonStepBase {
 export interface ActStep extends LessonStepBase {
   readonly kind: "act";
   /**
+   * The move to perform on the player's behalf when they take the rescue
+   * offered at the end of the hint ladder (§5.4). Absent where a step has no
+   * single right answer, in which case no rescue is offered.
+   *
+   * Taking it is recorded and deliberately not counted as demonstrated
+   * comprehension — §14.6 asks for rescue hints to be measured separately from
+   * ordinary assistance for exactly this reason.
+   */
+  readonly rescue?: (
+    view: PublicGameState,
+    offered: readonly GameAction[],
+  ) => GameAction | null;
+  /**
    * Narrows what the interface offers to the decision being taught. It is a
    * filter over actions the engine has already declared legal and can only
    * ever remove one; everything it hides is still a legal move.
@@ -88,13 +133,18 @@ export interface ScriptedDiscard {
 }
 
 export interface Lesson {
-  readonly id: LessonId;
+  /**
+   * Widened from the five replayable lesson ids so the #33 first-run phases
+   * can use the same runner. `LESSONS` below stays narrowly typed, so nothing
+   * that records lesson progress lost its guarantee.
+   */
+  readonly id: string;
   readonly title: string;
   /** One line on the Learn menu. Says what the player will do, not what they will read. */
   readonly summary: string;
   readonly scenario: ScenarioSpec;
   /**
-   * The seats shown face up, for teaching only.
+   * The seats revealed to the Peek overlay, for teaching only.
    *
    * The first four lessons open the table so the player can see why a claim
    * became available; the fifth closes it again and says so, which is the
@@ -160,7 +210,7 @@ function discardedBy(view: PublicGameState, seat: Seat, kind: OrdinaryTileKind):
  * pair, seen whole, before anything moves. Every later lesson is about getting
  * to this shape, and none of them make sense without it.
  */
-const SHAPE: Lesson = {
+const SHAPE: CoreLesson = {
   id: "shape",
   title: "Four sets and a pair",
   summary: "See a finished hand and name the shapes it is made of.",
@@ -186,7 +236,7 @@ const SHAPE: Lesson = {
       id: "target",
       prompt: "This is your hand, at the bottom. The other three players sit around you.",
       note:
-        "Every hand in mahjong is aiming at the same target: four sets of three, plus one pair. Yours is already there — this is what a finished hand looks like. The other players' tiles are face up for the next few lessons so you can see what is going on; in a real game they are hidden.",
+        "Every hand in mahjong is aiming at the same target: four sets of three, plus one pair. Yours is already there — this is what a finished hand looks like. The other three hold thirteen tiles each; Peek hands will show you theirs while these lessons are running, which a real game never does.",
     },
     {
       kind: "identify",
@@ -237,7 +287,7 @@ const SHAPE: Lesson = {
  * real engine discard, and the three opponent turns that follow are real
  * turns — this is the first time the table moves under them.
  */
-const TURN: Lesson = {
+const TURN: CoreLesson = {
   id: "turn",
   title: "Taking a turn",
   summary: "Draw a tile, choose a discard, and watch the table come round to you.",
@@ -313,7 +363,7 @@ const TURN: Lesson = {
  * avoided on purpose — the player learns that a hand has a distance left to
  * run without being handed the word "shanten" to carry.
  */
-const IMPROVE: Lesson = {
+const IMPROVE: CoreLesson = {
   id: "improve",
   title: "Choosing what to throw",
   summary: "Three discards where one choice moves you forward and the others do not.",
@@ -420,10 +470,12 @@ const IMPROVE: Lesson = {
 /**
  * 4. Claim tiles.
  *
- * The heart of the tutorial, and the reason the table is played face up. Each
- * claim is set up by putting the tiles in the player's hand and having an
+ * Each claim is set up by putting the tiles in the player's hand and having an
  * opponent throw the one that completes the shape — including the one that
- * proves the Chow restriction by *not* being claimable.
+ * proves the Chow restriction by *not* being claimable. Every one of those
+ * decisions is readable from public information alone; the revealed hands
+ * behind Peek explain what the opponents were doing, and are never the
+ * evidence a claim depends on (§8.1).
  */
 /** The tiles the claims lesson's own later steps are built on. */
 const CLAIMS_RESERVED: readonly OrdinaryTileKind[] = [
@@ -433,7 +485,7 @@ const CLAIMS_RESERVED: readonly OrdinaryTileKind[] = [
   "bamboo-5",
 ];
 
-const CLAIMS: Lesson = {
+const CLAIMS: CoreLesson = {
   id: "claims",
   title: "Taking other players' tiles",
   summary: "Pung, Chow, Kong and pass — each on a tile thrown in front of you.",
@@ -468,7 +520,7 @@ const CLAIMS: Lesson = {
       id: "open",
       prompt: "This hand you are North, and the player on your right deals.",
       note:
-        "When somebody throws a tile away, you may be able to take it — even when it is not your turn. Their hands are still face up so you can see why each offer appears.",
+        "When somebody throws a tile away, you may be able to take it — even when it is not your turn. Everything you need is public: your own tiles and the tile in the middle. Peek hands is there if you want to see what the others were holding.",
     },
     {
       kind: "act",
@@ -557,15 +609,15 @@ const CLAIMS: Lesson = {
 /**
  * 5. Win.
  *
- * Also where the table closes. The opponents' hands go face down before the
- * first move, with the change named out loud, so the player's last lesson is
- * played under exactly the conditions the real game is played under.
+ * Also where the revealed hands go. Peek is unavailable from the first move,
+ * with the change named out loud, so the player's last lesson is played under
+ * exactly the conditions the real game is played under.
  *
  * The winning hand is built around a Red Dragon pung, which is worth one faan
  * on its own. That is deliberate: it clears the standard minimum, so nothing
  * here teaches Beginner's zero-faan floor as though it were the rule.
  */
-const WIN: Lesson = {
+const WIN: CoreLesson = {
   id: "win",
   title: "Declaring a win",
   summary: "Spot the tile that finishes your hand, and call it.",
@@ -598,9 +650,9 @@ const WIN: Lesson = {
     {
       kind: "note",
       id: "closed",
-      prompt: "The other three hands are face down from here.",
+      prompt: "You cannot look at the other three hands from here on.",
       note:
-        "That is how a real game looks: you know your own tiles, everything anybody has thrown away, and nothing else. You were only being shown the rest so the last four lessons could explain themselves.",
+        "That is how a real game looks: you know your own tiles, everything anybody has thrown away, and nothing else. The other hands were only ever available so the last four lessons could explain themselves.",
     },
     {
       kind: "note",
@@ -639,9 +691,11 @@ const WIN: Lesson = {
   ],
 };
 
-export const LESSONS: readonly Lesson[] = [SHAPE, TURN, IMPROVE, CLAIMS, WIN];
+export type CoreLesson = Lesson & { readonly id: LessonId };
 
-export function lessonById(id: LessonId): Lesson {
+export const LESSONS: readonly CoreLesson[] = [SHAPE, TURN, IMPROVE, CLAIMS, WIN];
+
+export function lessonById(id: LessonId): CoreLesson {
   const lesson = LESSONS.find((candidate) => candidate.id === id);
   if (lesson === undefined) throw new Error(`Unknown lesson ${id}`);
   return lesson;

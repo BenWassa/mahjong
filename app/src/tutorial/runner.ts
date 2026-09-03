@@ -11,6 +11,7 @@ import {
   type TileKind,
 } from "@engine";
 
+import { DEFAULT_HINT_TIMING, hintLevelAt, nextHintDeadline, type HintLevel, type HintTiming } from "./hints";
 import type { ActStep, Lesson, LessonStep, ScriptedDiscard } from "./lessons";
 
 /**
@@ -45,6 +46,18 @@ const OPPONENT_SEATS: readonly Seat[] = [1, 2, 3];
  */
 export const TUTORIAL_MOVE_MS = 620;
 
+/**
+ * How long a satisfied step's consequence note is left up before the runner
+ * moves on by itself.
+ *
+ * `ONBOARDING_DESIGN.md` §5.3 rules out a Next press after every micro-step:
+ * where the player can perform the concept, performing it is what advances the
+ * step, and the note is a thing to read rather than a thing to acknowledge. A
+ * Next control stays on screen throughout so a reader who is finished — or a
+ * keyboard player who would rather not wait — can go sooner.
+ */
+export const TUTORIAL_NOTE_MS = 2600;
+
 export interface TutorialFeedback {
   readonly tone: "note" | "correction";
   readonly text: string;
@@ -72,6 +85,22 @@ export interface TutorialSnapshot {
   readonly openHands: ReadonlyMap<Seat, readonly Tile[]>;
   /** Tiles the player has correctly pointed at during an identify step. */
   readonly identified: readonly TileId[];
+  /**
+   * How hard the current step is currently cueing the player (§5.4). Rises
+   * with hesitation and resets whenever the step changes; frozen while the
+   * lesson is paused, so reading an overlay never escalates a hint.
+   */
+  readonly hintLevel: HintLevel;
+  /** The cue owed at the current level, or null at level 0. */
+  readonly hint: string | null;
+  /** True once the ladder has reached its end and a rescue is available. */
+  readonly rescueOffered: boolean;
+  /**
+   * True when the player reached this step's answer through the rescue rather
+   * than on their own. §14.6 asks for these to be counted separately from
+   * ordinary assistance, so the flag is carried rather than inferred.
+   */
+  readonly rescued: boolean;
   readonly feedback: TutorialFeedback | null;
   /** True once the player has satisfied the current step and may continue. */
   readonly stepSatisfied: boolean;
@@ -91,6 +120,17 @@ export interface TutorialRunnerOptions {
   readonly lesson: Lesson;
   /** Injected in tests to run the lesson without real timers. */
   readonly schedule?: (run: () => void, ms: number) => () => void;
+  /** Injected alongside `schedule` so the hint ladder can be driven forward. */
+  readonly now?: () => number;
+  readonly hintTiming?: HintTiming;
+  /**
+   * Advance a satisfied step by itself after its note has been read (§5.3).
+   *
+   * On for the #33 first-run phases, off for the replayable lessons, whose
+   * longer explanatory notes were written to be acknowledged and whose menu
+   * the player returns to anyway.
+   */
+  readonly autoAdvance?: boolean;
 }
 
 const defaultSchedule = (run: () => void, ms: number): (() => void) => {
@@ -117,10 +157,28 @@ export class TutorialRunner {
   #paused = false;
   #script: readonly ScriptedDiscard[];
   #cancel: (() => void) | null = null;
+  readonly #now: () => number;
+  readonly #hintTiming: HintTiming;
+  readonly #autoAdvance: boolean;
+  /** When the current step became the player's to answer. */
+  #stepAt: number;
+  /** Cancels the pending hint escalation, which is separate from the pump's. */
+  #hintCancel: (() => void) | null = null;
+  /** Elapsed idle time banked while paused, restored on resume. */
+  #pausedFor = 0;
+  /** Kept apart from the hint timer so pausing cannot strand a satisfied step. */
+  #advanceCancel: (() => void) | null = null;
+  #rescued = false;
+  /** Whether the table is currently stopped, waiting on the player. */
+  #awaiting = false;
 
   public constructor(options: TutorialRunnerOptions) {
     this.#lesson = options.lesson;
     this.#schedule = options.schedule ?? defaultSchedule;
+    this.#now = options.now ?? (() => Date.now());
+    this.#hintTiming = options.hintTiming ?? DEFAULT_HINT_TIMING;
+    this.#autoAdvance = options.autoAdvance ?? false;
+    this.#stepAt = this.#now();
     this.#game = newScenarioGame(options.lesson.scenario);
     this.#script = [...(options.lesson.script ?? [])];
     this.#bots = new Map(
@@ -137,6 +195,7 @@ export class TutorialRunner {
 
   public snapshot(): TutorialSnapshot {
     const step = this.#currentStep();
+    const level = this.#hintLevel();
     return {
       lessonId: this.#lesson.id,
       title: this.#lesson.title,
@@ -147,6 +206,10 @@ export class TutorialRunner {
       legalActions: this.#offeredActions(step),
       openHands: this.#openHands(),
       identified: [...this.#identified],
+      hintLevel: level,
+      hint: this.#hintAt(level),
+      rescueOffered: level >= 3 && this.#rescueAction() !== null,
+      rescued: this.#rescued,
       feedback: this.#feedback,
       stepSatisfied: this.#satisfied,
       waitingOn: this.#cancel === null ? null : this.#pendingOpponent(),
@@ -174,8 +237,23 @@ export class TutorialRunner {
     if (paused) {
       this.#cancel?.();
       this.#cancel = null;
+      this.#hintCancel?.();
+      this.#hintCancel = null;
+      this.#advanceCancel?.();
+      this.#advanceCancel = null;
+      // The ladder measures hesitation, and somebody reading an overlay is not
+      // hesitating. Banking the elapsed time and restoring it on resume keeps
+      // "5 seconds of not knowing what to do" meaning that, rather than "5
+      // seconds, some of which you spent with the table hidden behind a panel".
+      this.#pausedFor = this.#now() - this.#stepAt;
     } else {
+      this.#stepAt = this.#now() - this.#pausedFor;
+      // Resuming must not look like the step becoming answerable all over
+      // again: the banked idle time is restored above, and re-deriving the
+      // clock here would hand the player back the seconds they had spent.
+      this.#awaiting = true;
       this.#pump();
+      if (this.#satisfied) this.#armAutoAdvance(this.#currentStep());
     }
     this.#emit();
   }
@@ -188,7 +266,31 @@ export class TutorialRunner {
   public dispose(): void {
     this.#cancel?.();
     this.#cancel = null;
+    this.#hintCancel?.();
+    this.#hintCancel = null;
+    this.#advanceCancel?.();
+    this.#advanceCancel = null;
     this.#listeners.clear();
+  }
+
+  /**
+   * The last rung of the assistance ladder: perform the step's own answer.
+   *
+   * Only ever available once the ladder has reached level 3 and only for a
+   * step that named a rescue, so it can neither be reached early nor invent an
+   * answer for a step that has no single right one. The move it plays is a
+   * real engine move like every other, checked against the step's goal on the
+   * way through, and it is recorded as a rescue so nothing downstream mistakes
+   * it for the player working it out.
+   */
+  public rescue(): void {
+    const step = this.#currentStep();
+    if (step.kind !== "act" || this.#satisfied || this.#paused) return;
+    if (this.#hintLevel() < 3) return;
+    const action = this.#rescueAction();
+    if (action === null) return;
+    this.#rescued = true;
+    this.act(action);
   }
 
   /**
@@ -222,6 +324,7 @@ export class TutorialRunner {
       .slice(0, group.length);
     this.#satisfied = true;
     this.#feedback = { tone: "note", text: step.note };
+    this.#armAutoAdvance(step);
     this.#emit();
   }
 
@@ -250,6 +353,7 @@ export class TutorialRunner {
     this.#game = this.#game.act(action);
     this.#satisfied = true;
     this.#feedback = { tone: "note", text: step.note };
+    this.#armAutoAdvance(step);
     this.#emit();
   }
 
@@ -261,6 +365,12 @@ export class TutorialRunner {
     if (this.#stepIndex >= this.#lesson.steps.length - 1) {
       this.#finished = true;
       this.#feedback = null;
+      this.#cancel?.();
+      this.#cancel = null;
+      this.#hintCancel?.();
+      this.#hintCancel = null;
+      this.#advanceCancel?.();
+      this.#advanceCancel = null;
       this.#emit();
       return;
     }
@@ -268,8 +378,114 @@ export class TutorialRunner {
     this.#satisfied = false;
     this.#identified = [];
     this.#feedback = null;
+    this.#rescued = false;
+    this.#advanceCancel?.();
+    this.#advanceCancel = null;
+    this.#awaiting = false;
+    this.#restartHintClock();
     this.#pump();
     this.#emit();
+  }
+
+  /**
+   * Restarts the idle clock the hint ladder measures against.
+   *
+   * Separate from `#armHints` because the pump can re-derive a step's position
+   * without the player having done anything: an opponent finishing a move is
+   * not the player hesitating, and it must not reset the clock either.
+   */
+  #restartHintClock(): void {
+    this.#stepAt = this.#now();
+    this.#pausedFor = 0;
+  }
+
+  /**
+   * Whether this step has anything to escalate to.
+   *
+   * A step with neither a written cue nor a rescue has nothing the ladder
+   * could offer, so no clock runs for it and its level is flat zero. That is
+   * what keeps the ladder entirely absent from the replayable #30 lessons,
+   * which were written before it existed and are paced by their own notes.
+   */
+  #laddered(step: LessonStep): boolean {
+    if (step.kind === "note") return false;
+    if ((step.hints ?? []).length > 0) return true;
+    return step.kind === "act" && step.rescue !== undefined;
+  }
+
+  /** Wakes the runner at the next moment the cue would strengthen. */
+  #armHints(): void {
+    this.#hintCancel?.();
+    this.#hintCancel = null;
+    if (this.#finished || this.#paused || this.#satisfied) return;
+    const step = this.#currentStep();
+    if (!this.#laddered(step)) return;
+    const owed = nextHintDeadline(
+      this.#now() - this.#stepAt,
+      this.#hintTiming,
+      step.immediateHint ?? false,
+    );
+    if (owed === null) return;
+    this.#hintCancel = this.#schedule(() => {
+      this.#hintCancel = null;
+      this.#armHints();
+      this.#emit();
+    }, Math.max(0, owed));
+  }
+
+  #hintLevel(): HintLevel {
+    const step = this.#currentStep();
+    if (this.#satisfied || this.#finished || !this.#laddered(step)) return 0;
+    const idle = this.#paused ? this.#pausedFor : this.#now() - this.#stepAt;
+    return hintLevelAt(idle, this.#hintTiming, step.immediateHint ?? false);
+  }
+
+  /**
+   * The cue owed at `level`.
+   *
+   * A step's `hints` are written softest first, and the level indexes into
+   * them: a step with one hint shows it from level 1 onwards rather than
+   * staying silent until it has three of them to offer.
+   */
+  #hintAt(level: HintLevel): string | null {
+    if (level === 0) return null;
+    const hints = this.#currentStep().hints ?? [];
+    if (hints.length === 0) return null;
+    return hints[Math.min(level - 1, hints.length - 1)] ?? null;
+  }
+
+  #rescueAction(): GameAction | null {
+    const step = this.#currentStep();
+    if (step.kind !== "act" || step.rescue === undefined || this.#satisfied) return null;
+    // The step is handed the actions it is currently offering rather than
+    // having to re-derive them: a claim rescue has to name one of the engine's
+    // own claim actions, tile ids and all, and nothing outside the runner can
+    // construct one of those correctly.
+    const offered = this.#offeredActions(step);
+    const action = step.rescue(this.#game.state(TUTORIAL_SEAT), offered);
+    if (action === null) return null;
+    // Held to the same standard as a player's own tap: a rescue that is not
+    // among the actions this step is offering is a lesson bug, and playing it
+    // anyway would put the scenario somewhere nobody designed.
+    return offered.some((candidate) => sameAction(candidate, action)) ? action : null;
+  }
+
+  /**
+   * Moves a satisfied step on by itself once its note has been read (§5.3).
+   *
+   * Only for the first-run phases, and only for a step that did not ask to be
+   * held. The Next control stays on screen the whole time, so this shortens
+   * the ceremony rather than taking the pacing away from the player.
+   */
+  #armAutoAdvance(step: LessonStep): void {
+    this.#advanceCancel?.();
+    this.#advanceCancel = null;
+    if (!this.#autoAdvance || (step.hold ?? false)) return;
+    this.#advanceCancel = this.#schedule(() => {
+      this.#advanceCancel = null;
+      if (this.#paused || this.#finished || !this.#satisfied) return;
+      this.advance();
+    }, TUTORIAL_NOTE_MS);
   }
 
   #currentStep(): LessonStep {
@@ -325,6 +541,34 @@ export class TutorialRunner {
    * begins mid-move.
    */
   #pump(): void {
+    this.#pumpTable();
+    /*
+     * The idle clock starts when the step becomes the player's to answer, not
+     * when the step began.
+     *
+     * A step that names a position runs the table to it first — three opponent
+     * turns at 620ms each — and counting that as hesitation would have the
+     * ladder two rungs up before the learner was ever asked anything. What
+     * §5.4 measures is a player who does not know what to do, and a player
+     * watching an opponent move is not that.
+     */
+    const awaiting = this.#awaitingPlayer();
+    if (awaiting && !this.#awaiting) this.#restartHintClock();
+    this.#awaiting = awaiting;
+    this.#armHints();
+  }
+
+  /** True once the table has stopped and the current step is owed an answer. */
+  #awaitingPlayer(): boolean {
+    if (this.#finished || this.#paused || this.#satisfied) return false;
+    // Something is still moving; the player is not being asked yet.
+    if (this.#cancel !== null) return false;
+    const step = this.#currentStep();
+    if (!this.#laddered(step)) return false;
+    return this.#offeredActions(step).length > 0;
+  }
+
+  #pumpTable(): void {
     this.#cancel?.();
     this.#cancel = null;
     if (this.#finished || this.#paused) return;

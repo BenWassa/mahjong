@@ -599,6 +599,10 @@ Every implemented first-run stage must map to one primary learning objective. If
 
 ## 14. Future real-human comprehension test
 
+> Implemented and ready to run. The readiness statement, the exact routes and
+> state-reset instructions, and the moderator's protocol are in
+> [`ONBOARDING_HUMAN_TEST.md`](ONBOARDING_HUMAN_TEST.md).
+
 This gate is required before claiming the redesigned onboarding is successful. It measures **understanding and transfer**, not tutorial completion.
 
 ### 14.1 Cohorts

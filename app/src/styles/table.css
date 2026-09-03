@@ -753,3 +753,38 @@
     transform: none;
   }
 }
+
+/* The route out of the table (#33, ONBOARDING_DESIGN.md §4.2).
+ *
+ * It used to be a physical rotation, which nothing announced. This is the
+ * conventional replacement: last in the strip, away from the turn readout the
+ * player checks constantly, and present at every layout tier — the responsive
+ * priority policy may drop the seat metadata and the explain banner on a short
+ * phone, but it may not drop the only visible way to the rest of the product.
+ *
+ * The strip is 26px because chrome height is the cheapest thing the table
+ * owns and the hand is the most expensive. So the drawn control stays inside
+ * it and the *hit area* is padded past it, which is exactly the bargain
+ * `.hand__slot` already makes for a tile narrower than the touch floor. */
+.status__menu {
+  position: relative;
+  margin-inline-start: auto;
+  padding: 0 var(--space-4);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--radius-control);
+  background: transparent;
+}
+
+.status__menu::after {
+  content: "";
+  position: absolute;
+  inset: calc((26px - var(--touch-min)) / 2) 0;
+  min-width: var(--touch-min);
+  min-height: var(--touch-min);
+}
+
+.status__menu:active {
+  background: var(--surface-raised);
+}

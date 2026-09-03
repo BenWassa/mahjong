@@ -17,9 +17,11 @@ import {
 import { seatPosition, seatPositionName } from "../game/labels";
 import { isLayoutDebugEnabled } from "../game/layoutDebug";
 import type { TableMode } from "../game/modes";
+import { scaffoldingFor } from "../game/scaffold";
 import { newMatchSeed } from "../game/seed";
 import type { SessionSnapshot } from "../game/session";
 import type { SessionHandle } from "../game/useGameSession";
+import { useDemonstratedCompetence } from "../game/useCompetence";
 import { useTableGeometry } from "../game/useTableGeometry";
 import type { CornerLabelMode } from "../tiles/Tile";
 import { ClaimBand } from "./ClaimBand";
@@ -47,6 +49,7 @@ export function TableView({
   claimsReduced,
   guided = false,
   onGuidedHandEnded,
+  onMenu,
 }: {
   readonly session: SessionHandle;
   readonly cornerLabel: CornerLabelMode;
@@ -66,6 +69,12 @@ export function TableView({
   readonly guided?: boolean;
   /** Called once the guided hand is over, so the guidance lapses with it. */
   readonly onGuidedHandEnded?: () => void;
+  /**
+   * Opens the menu (#33). Not optional: a landscape table with no visible
+   * route to the rest of the product is the defect §4.2 exists to fix, and
+   * making this defaultable would let a caller reintroduce it by omission.
+   */
+  readonly onMenu: () => void;
 }): JSX.Element {
   const beginner = mode === "beginner";
   const { snapshot, act, advance, restart, scoreBreakdown } = session;
@@ -252,15 +261,33 @@ export function TableView({
     if (snapshot.waitingTiles.length === 0) return null;
     return describeWaitingTiles(snapshot.waitingTiles);
   }, [assistOn, claims.length, suggestion, snapshot.waitingTiles]);
-  // Beginner leads with the gesture rather than the verdict: the tap-tap
-  // discard model is the thing a first-time player is still learning, and the
-  // hint line is where they are already looking.
+  /*
+   * The scaffolding fade (#33, ONBOARDING_DESIGN.md §7.3).
+   *
+   * Beginner used to lead with the gesture unconditionally — "tap X twice to
+   * discard" — because the tap-tap model is the thing a first-time player is
+   * still learning. That is right for the first two turns and wrong for the
+   * fiftieth: a suggestion that re-explains the controls every time reads as
+   * the app not believing the player.
+   *
+   * So it now leads with the gesture only until the player has thrown two
+   * tiles by themselves, and with the verdict afterwards. The competence is
+   * durable rather than per-hand, because "you have done this yourself twice"
+   * is a fact about the player and not about the hand they are in.
+   */
+  const competence = useDemonstratedCompetence();
+  const ownDiscards = view.discards.filter((discard) => discard.seat === view.viewer).length;
+  const ownMelds = self.melds.length;
+  const { observe } = competence;
+  useEffect(() => { observe(ownDiscards, ownMelds); }, [observe, ownDiscards, ownMelds]);
+  const scaffolding = scaffoldingFor(competence, beginner);
+
   const assistHint =
     suggestion !== null ? (
       <p className="claimband__hint">
-        {beginner ? "Tap " : "Suggested: discard "}
+        {scaffolding.explainDiscardGesture ? "Tap " : "Suggested: discard "}
         <strong>{suggestion.tileName}</strong>
-        {beginner ? " twice to discard" : ""} — {suggestion.reason}
+        {scaffolding.explainDiscardGesture ? " twice to discard" : ""} — {suggestion.reason}
       </p>
     ) : waitingHint !== null ? (
       <p className="claimband__hint">
@@ -281,7 +308,7 @@ export function TableView({
       data-tier={policy.tier}
       style={geometryVariables(geometry)}
     >
-      <StatusStrip view={view} />
+      <StatusStrip view={view} onMenu={onMenu} />
 
       {activeConcept !== null && policy.showChrome && (
         <ExplainBanner

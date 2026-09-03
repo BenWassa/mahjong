@@ -317,3 +317,96 @@
     transform: none;
   }
 }
+
+/* ==========================================================================
+   The menu sheet (#33, ONBOARDING_DESIGN.md §4.2)
+   ==========================================================================
+
+   The surface that replaces rotate-to-portrait as this app's navigation. It
+   is a sheet over the table rather than a screen the player is sent to: the
+   felt stays visible behind it, closing it lands exactly where they were, and
+   nothing about the match moves while it is up.
+
+   It lays out in either orientation, because §4.2 allows a secondary surface
+   to reflow into portrait but forbids portrait from being its trigger — a
+   player who rotates with the menu open keeps the menu. */
+
+.menu__panel {
+  width: min(560px, 100%);
+  max-height: 100%;
+  overflow-y: auto;
+  padding: max(var(--space-5), var(--safe-top)) max(var(--space-6), var(--safe-right))
+    max(var(--space-5), var(--safe-bottom)) max(var(--space-6), var(--safe-left));
+  background: var(--surface-overlay);
+  border-radius: var(--radius-surface);
+  box-shadow: var(--shadow-overlay);
+}
+
+.menu__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  margin-bottom: var(--space-5);
+}
+
+.menu__headline {
+  flex: 1;
+  margin: 0;
+  font-size: var(--text-lg);
+  color: var(--text-primary);
+}
+
+.menu__close {
+  min-height: var(--touch-min);
+  padding: 0 var(--space-5);
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--radius-control);
+  background: transparent;
+}
+
+.menu__close:active {
+  background: var(--surface-raised);
+}
+
+/* Two columns where the viewport can pay for them. A nine-row single column
+   is taller than a landscape phone, and a menu that scrolls to reach Stats is
+   a menu whose second half nobody finds. */
+.menu__settings {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: var(--space-3) var(--space-6);
+}
+
+.menu__setting {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-5);
+  min-height: var(--touch-min);
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  border-bottom: 1px solid var(--hairline);
+}
+
+.menu__toggle {
+  min-height: var(--touch-min);
+  padding: 0 var(--space-5);
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--radius-control);
+  background: transparent;
+}
+
+.menu__toggle:active {
+  background: var(--surface-raised);
+}
+
+.menu__hint {
+  margin: var(--space-5) 0 0;
+  font-size: var(--text-xs);
+  line-height: 1.5;
+  color: var(--text-tertiary);
+}

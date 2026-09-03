@@ -159,8 +159,15 @@ else {
 
 // 5. No hidden information is in the DOM at all, not merely unpainted.
 const leaked = await page.evaluate(() => {
+  // Exposed melds are excluded: they name their tiles on purpose, which is
+  // what claiming costs. Only the concealed portion of a seat must be
+  // unidentifiable, and there it is a count.
   const seats = [...document.querySelectorAll(".seat")];
-  return seats.filter((node) => /of (Characters|Bamboo|Dots)/.test(node.innerHTML)).length;
+  return seats.filter((node) => {
+    const seat = node.cloneNode(true);
+    for (const melds of seat.querySelectorAll(".seat__melds")) melds.remove();
+    return /of (Characters|Bamboo|Dots)/.test(seat.innerHTML);
+  }).length;
 });
 if (leaked > 0) note(`${leaked} opponent seats contain identified concealed tiles`);
 
@@ -320,12 +327,183 @@ await page.evaluate(() => {
   await winPage.waitForSelector(".coach");
   const leakedInLesson = await winPage.evaluate(() => {
     const seats = [...document.querySelectorAll(".seat")];
-    return seats.filter((node) => /of (Characters|Bamboo|Dots)/.test(node.innerHTML)).length;
+    return seats.filter((node) => {
+      const seat = node.cloneNode(true);
+      for (const melds of seat.querySelectorAll(".seat__melds")) melds.remove();
+      return /of (Characters|Bamboo|Dots)/.test(seat.innerHTML);
+    }).length;
   });
   if (leakedInLesson > 0) {
     note(`${leakedInLesson} seats in the "win" lesson contain identified concealed tiles`);
   }
   await winPage.close();
+}
+
+/*
+ * 10. The first-launch question (#33).
+ *
+ * The one screen every single player sees, and the only one they see before
+ * they have any idea what the product is. Its three buttons carry long
+ * explanatory bodies, so a contrast failure here is a failure on the most-read
+ * text in the app; and a screen reader user has to be able to tell the three
+ * apart from their names alone.
+ */
+{
+  const choicePage = await browser.newPage({ viewport: { width: 915, height: 412 } });
+  await choicePage.goto(`${BASE}?seed=a11y-choice`, { waitUntil: "networkidle" });
+  await choicePage.waitForSelector(".choice__option");
+
+  await installContrastHelpers(choicePage);
+  const choiceContrast = await measureContrast(
+    choicePage,
+    ".choice h1, .choice p, .choice span",
+  );
+  if (choiceContrast.length === 0) note("No first-launch text was measured for contrast");
+  noteContrastFailures(choiceContrast, " on the first-launch question");
+  measured += choiceContrast.length;
+
+  const names = await choicePage.$$eval(".choice__option", (nodes) =>
+    nodes.map((node) => (node.textContent ?? "").trim()),
+  );
+  if (names.length !== 3) note(`The first-launch question offers ${names.length} paths, not 3`);
+  if (new Set(names).size !== names.length) note("Two first-launch paths read identically");
+  // §3.1: a novice cannot answer a question about rules profiles, so the
+  // screen that segments them must not ask one.
+  if (names.some((text) => /\bfaan\b/i.test(text))) {
+    note("The first-launch question names faan before the player has seen a turn");
+  }
+
+  const firstFocus = await choicePage.evaluate(() => document.activeElement?.className ?? "");
+  if (!firstFocus.includes("choice__option")) {
+    note("The first-launch question does not place focus on a path to choose");
+  }
+  await choicePage.close();
+}
+
+/*
+ * 11. The menu sheet (#33): the surface that replaced rotate-to-portrait.
+ *
+ * It is a modal over a live table, so it owes what every modal in this product
+ * owes — a dialog role, a name, focus moved in and trapped, and a way out that
+ * is not the hardware back button alone. It is also now the *only* route to
+ * settings, the rules, stats and the lessons, so a keyboard or screen-reader
+ * user who cannot operate it cannot reach any of them.
+ */
+{
+  const menuPage = await browser.newPage({ viewport: { width: 915, height: 412 } });
+  await menuPage.goto(`${BASE}?seed=a11y-menu&mode=standard`, { waitUntil: "networkidle" });
+  await menuPage.waitForSelector(".status__menu");
+  await menuPage.click(".status__menu");
+  await menuPage.waitForSelector(".menu__panel");
+
+  const dialog = await menuPage.evaluate(() => {
+    const panel = document.querySelector(".menu__panel");
+    if (panel === null) return null;
+    return {
+      role: panel.getAttribute("role"),
+      modal: panel.getAttribute("aria-modal"),
+      labelled: panel.getAttribute("aria-labelledby"),
+      focusInside: panel.contains(document.activeElement),
+    };
+  });
+  if (dialog === null) note("The menu sheet did not open");
+  else {
+    if (dialog.role !== "dialog") note("The menu sheet is not a dialog");
+    if (dialog.modal !== "true") note("The menu sheet is not modal");
+    if (dialog.labelled === null) note("The menu sheet has no accessible name");
+    if (!dialog.focusInside) note("Opening the menu sheet did not move focus into it");
+  }
+
+  await installContrastHelpers(menuPage);
+  const menuContrast = await measureContrast(menuPage, ".menu__panel span, .menu__panel p, .menu__panel button, .menu__panel h2");
+  if (menuContrast.length === 0) note("No menu text was measured for contrast");
+  noteContrastFailures(menuContrast, " in the menu sheet");
+  measured += menuContrast.length;
+
+  // Every setting is a labelled control, not a bare word next to a button.
+  const undescribed = await menuPage.$$eval(".menu__toggle", (nodes) =>
+    nodes.filter((node) => (node.getAttribute("aria-describedby") ?? "") === "").length,
+  );
+  if (undescribed > 0) note(`${undescribed} menu toggles say what they do only by position`);
+
+  // Escape is a way out that does not depend on finding the close control.
+  await menuPage.keyboard.press("Escape");
+  await menuPage.waitForTimeout(200);
+  if ((await menuPage.$(".menu__panel")) !== null) note("Escape does not close the menu sheet");
+  await menuPage.close();
+}
+
+/*
+ * 12. The walkthrough's attention layer (#33).
+ *
+ * Two obligations, and they pull in opposite directions.
+ *
+ * The spotlight is decoration over a table the player still operates directly,
+ * so it must be inert to touch and hidden from assistive technology — a scrim
+ * that swallowed taps would make a teaching aid into a lockout. But the
+ * *sentence* it carries is instruction, so it has to reach a screen reader by
+ * another route: the coach strip's live region, which announces it whether or
+ * not the callout could be anchored.
+ *
+ * Reduced motion gets its own pass. §5.5 requires motion never to be the thing
+ * that locates a target, so the ring and the dimming have to be there with
+ * animation switched off.
+ */
+for (const motion of ["no-preference", "reduce"]) {
+  const teachPage = await browser.newPage({
+    viewport: { width: 915, height: 412 },
+    reducedMotion: motion,
+  });
+  await teachPage.goto(`${BASE}?experience=new&seed=a11y-teach`, { waitUntil: "networkidle" });
+  await teachPage.waitForSelector(".attention", { timeout: 10000 });
+  await teachPage.waitForTimeout(300);
+
+  const layer = await teachPage.evaluate(() => {
+    const attention = document.querySelector(".attention");
+    const ring = document.querySelector(".attention__ring");
+    const coach = document.querySelector(".coach__body");
+    return {
+      hidden: attention?.getAttribute("aria-hidden") === "true",
+      inert: attention === null ? null : getComputedStyle(attention).pointerEvents,
+      holes: Math.max(0, document.querySelectorAll("#attention-mask rect").length - 1),
+      ringStroke: ring === null ? null : Number.parseFloat(getComputedStyle(ring).strokeWidth),
+      live: coach?.getAttribute("aria-live") ?? null,
+      spoken: (coach?.textContent ?? "").trim().length,
+    };
+  });
+
+  const which = ` (prefers-reduced-motion: ${motion})`;
+  if (!layer.hidden) note(`The spotlight is exposed to assistive technology${which}`);
+  if (layer.inert !== "none") note(`The spotlight is not inert to touch${which}`);
+  // A ring drawn with shape, not only brightness: §5.5 requires the target to
+  // survive a colour-vision difference, and it must not depend on animation.
+  if (layer.holes === 0) note(`The walkthrough spotlights nothing${which}`);
+  if (!(layer.ringStroke > 0)) note(`The spotlight target has no drawn outline${which}`);
+  if (layer.live !== "polite") note(`The walkthrough instruction is not in a live region${which}`);
+  if (layer.spoken === 0) note(`The walkthrough instruction is empty${which}`);
+
+  /*
+   * The player still reaches the real table underneath the overlay.
+   *
+   * Asserted against the topmost *hit-testable* element over the hand rather
+   * than against an enabled tile: a step whose tiles are all disabled is
+   * normal — the walkthrough's note steps deliberately offer nothing — and
+   * requiring one here would test the step, not the overlay. What must never
+   * be true is that the attention layer is what the thumb lands on.
+   */
+  const intercepted = await teachPage.evaluate(() => {
+    const hand = document.querySelector(".hand");
+    if (hand === null) return "no hand";
+    const box = hand.getBoundingClientRect();
+    const top = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);
+    if (top === null) return "nothing";
+    return top.closest(".attention") === null ? null : (top.getAttribute("class") ?? top.tagName);
+  });
+  if (intercepted !== null) {
+    note(`The spotlight overlay intercepts taps on the hand (${intercepted})${which}`);
+  }
+
+  await teachPage.close();
 }
 
 await browser.close();

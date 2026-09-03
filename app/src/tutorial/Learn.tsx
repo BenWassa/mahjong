@@ -1,41 +1,45 @@
 import { useCallback, useState, type JSX } from "react";
 
-import type { TableMode } from "../game/modes";
 import type { CornerLabelMode } from "../tiles/Tile";
 import type { LessonId } from "./ids";
-import { LearnFinish, LearnMenu } from "./LearnMenu";
+import { LearnMenu } from "./LearnMenu";
 import { LESSONS } from "./lessons";
 import { TutorialView } from "./TutorialView";
 import { useTutorialLesson, useTutorialProgress } from "./useTutorial";
 
-type Screen = { readonly kind: "menu" } | { readonly kind: "lesson"; readonly id: LessonId } | { readonly kind: "finish" };
+type Screen = { readonly kind: "menu" } | { readonly kind: "lesson"; readonly id: LessonId };
 
 /**
- * Learn to Play (#30), end to end: the menu, the five lessons, and the door
- * out to a real hand.
+ * Learn to Play: the lesson menu and the five replayable lessons.
  *
- * Nothing here can trap the player. Every screen has a way back to the table,
- * a lesson can be left in the middle of a step, and the graduation screen is
- * reached by finishing the fifth lesson rather than by completing all five in
- * one sitting — a player who ran three lessons yesterday and two today gets it
- * just the same.
+ * #33 changed what this surface is *for*. It used to be the first-run router —
+ * a novice answered the launch question and landed here, on a five-item
+ * curriculum they had no schema with which to choose between. First run is now
+ * a linear walkthrough (`tutorial/Onboarding.tsx`), and this became what
+ * `ONBOARDING_DESIGN.md` §12 asks for: a reference and practice library, reached
+ * from the menu, replayable in any order, with completion markers that are
+ * informational only.
+ *
+ * The graduation screen went with it. Finishing the fifth lesson used to ask
+ * the player to choose Beginner or Standard, which is the rules-profile
+ * question §3 removes from first run — and asking it of somebody who came back
+ * to replay a lesson is worse still, because they already have a table and did
+ * not come here to change it. Finishing now simply marks the lesson done and
+ * returns to the list.
+ *
+ * Nothing here can trap the player: every screen has a way back to the table,
+ * and a lesson can be left in the middle of a step.
  */
 export function Learn({
   cornerLabel,
   openAt = null,
-  firstRun,
   onLeave,
-  onGraduate,
 }: {
   readonly cornerLabel: CornerLabelMode;
   /** A lesson to open straight into, from `?learn=<id>`. */
   readonly openAt?: LessonId | null;
-  /** Opened from the first-launch question rather than from the menu. */
-  readonly firstRun: boolean;
   /** Leave for the table that was already there, unchanged. */
   readonly onLeave: () => void;
-  /** Leave having finished, onto the chosen table with the guided hand. */
-  readonly onGraduate: (mode: TableMode) => void;
 }): JSX.Element {
   const [screen, setScreen] = useState<Screen>(
     openAt === null ? { kind: "menu" } : { kind: "lesson", id: openAt },
@@ -45,22 +49,15 @@ export function Learn({
   const onFinishLesson = useCallback(
     (id: LessonId) => {
       progress.complete(id);
-      // The fifth lesson is the end of the sequence, so finishing it is what
-      // graduation means — not having every earlier one ticked off, which
-      // would punish a player who skipped one and make the door unreachable.
-      if (id === LESSONS[LESSONS.length - 1]?.id) {
-        progress.finish();
-        setScreen({ kind: "finish" });
-      } else {
-        setScreen({ kind: "menu" });
-      }
+      // Finishing the last lesson records that the course has been seen
+      // through. It is a marker, not a gate and not a door: §12 makes these
+      // informational, and the way back to the table is the same button it is
+      // from every other lesson.
+      if (id === LESSONS[LESSONS.length - 1]?.id) progress.finish();
+      setScreen({ kind: "menu" });
     },
     [progress],
   );
-
-  if (screen.kind === "finish") {
-    return <LearnFinish onChoose={onGraduate} />;
-  }
 
   if (screen.kind === "lesson") {
     return (
@@ -76,7 +73,6 @@ export function Learn({
   return (
     <LearnMenu
       completed={progress.completed}
-      firstRun={firstRun}
       onStart={(id) => { setScreen({ kind: "lesson", id }); }}
       onPlay={onLeave}
     />

@@ -28,6 +28,9 @@ function sampleRecord(overrides: Partial<GameRecord> = {}): GameRecord {
   return { ...record, ...overrides };
 }
 
+/** The competence counters a player who has done nothing yet carries (§7.3). */
+const NO_TURNS = { unpromptedTurns: 0, hasClaimed: false } as const;
+
 beforeEach(() => {
   window.localStorage.clear();
 });
@@ -38,48 +41,91 @@ describe("settings", () => {
   });
 
   it("round-trips a saved value", () => {
-    saveSettings({
-      version: 2,
+    const saved = {
+      version: 3,
       cornerLabel: "off",
       assistOn: false,
       explainOn: false,
+      experience: "new",
       mode: "beginner",
       showAllClaims: false,
-    });
-    expect(loadSettings()).toEqual({
-      version: 2,
-      cornerLabel: "off",
-      assistOn: false,
-      explainOn: false,
-      mode: "beginner",
-      showAllClaims: false,
-    });
+    } as const;
+    saveSettings(saved);
+    expect(loadSettings()).toEqual(saved);
   });
 
   it("keeps an unanswered first-launch question as an unanswered one", () => {
-    // `mode: null` is a legitimate stored state, not corruption: it is what
-    // "has never been asked" looks like on disk.
+    // `experience: null` is a legitimate stored state, not corruption: it is
+    // what "has never been asked" looks like on disk, and #33 moved that duty
+    // off `mode` — a novice cannot answer a question about rules profiles, so
+    // the field that records the answer is no longer a rules profile.
     saveSettings({ ...DEFAULT_SETTINGS, cornerLabel: "off" });
-    expect(loadSettings().mode).toBeNull();
+    expect(loadSettings().experience).toBeNull();
     expect(loadSettings().cornerLabel).toBe("off");
   });
 
   it("migrates a v1 blob onto the standard table, keeping its toggles", () => {
     // Someone with a v1 blob has already played this app. They must not be
-    // asked the new-player question, their table must not change under them,
+    // asked the first-launch question, their table must not change under them,
     // and above all their existing toggles must survive the upgrade.
     window.localStorage.setItem(
       "mahjong:v1:settings",
       JSON.stringify({ version: 1, cornerLabel: "rank-suit", assistOn: false, explainOn: true }),
     );
     expect(loadSettings()).toEqual({
-      version: 2,
+      version: 3,
       cornerLabel: "rank-suit",
       assistOn: false,
       explainOn: true,
+      experience: "confident",
       mode: "standard",
       showAllClaims: true,
     });
+  });
+
+  it("migrates a v2 blob without re-asking or re-configuring anything", () => {
+    // #33 makes this promise load-bearing rather than merely polite. The new
+    // first run is a scripted walkthrough, and dropping somebody who has
+    // played fifty hands into one because they updated the app would be the
+    // worst possible reading of "we redesigned onboarding".
+    window.localStorage.setItem(
+      "mahjong:v1:settings",
+      JSON.stringify({
+        version: 2,
+        cornerLabel: "off",
+        assistOn: false,
+        explainOn: false,
+        mode: "beginner",
+        showAllClaims: false,
+      }),
+    );
+    expect(loadSettings()).toEqual({
+      version: 3,
+      cornerLabel: "off",
+      assistOn: false,
+      explainOn: false,
+      // "Confident" is what an existing player is, whatever they answered to
+      // the old question — and their stored table and aids are carried across
+      // untouched rather than reset to that path's defaults.
+      experience: "confident",
+      mode: "beginner",
+      showAllClaims: false,
+    });
+  });
+
+  it("keeps a v2 blob that never answered the old question unanswered", () => {
+    window.localStorage.setItem(
+      "mahjong:v1:settings",
+      JSON.stringify({
+        version: 2,
+        cornerLabel: "rank",
+        assistOn: true,
+        explainOn: true,
+        mode: null,
+        showAllClaims: true,
+      }),
+    );
+    expect(loadSettings().experience).toBeNull();
   });
 
   it("falls back to the default and clears the key on malformed JSON", () => {
@@ -97,11 +143,28 @@ describe("settings", () => {
     window.localStorage.setItem(
       "mahjong:v1:settings",
       JSON.stringify({
-        version: 2,
+        version: 3,
         cornerLabel: "rank",
         assistOn: true,
         explainOn: true,
+        experience: "confident",
         mode: "expert",
+        showAllClaims: true,
+      }),
+    );
+    expect(loadSettings()).toEqual(DEFAULT_SETTINGS);
+  });
+
+  it("falls back to the default for an unknown experience path", () => {
+    window.localStorage.setItem(
+      "mahjong:v1:settings",
+      JSON.stringify({
+        version: 3,
+        cornerLabel: "rank",
+        assistOn: true,
+        explainOn: true,
+        experience: "expert",
+        mode: "standard",
         showAllClaims: true,
       }),
     );
@@ -213,22 +276,87 @@ describe("completed games", () => {
 
 describe("tutorial progress", () => {
   it("starts every player at the beginning when nothing is stored", () => {
-    expect(loadTutorial()).toEqual({ version: 1, completed: [], finished: false });
+    expect(loadTutorial()).toEqual({
+      version: 2,
+      completed: [],
+      finished: false,
+      onboarding: null,
+      onboardingDone: false,
+      competence: NO_TURNS,
+    });
     expect(loadTutorial()).toEqual(DEFAULT_TUTORIAL);
   });
 
   it("round-trips saved progress", () => {
-    saveTutorial({ version: 1, completed: ["shape", "turn"], finished: false });
-    expect(loadTutorial()).toEqual({ version: 1, completed: ["shape", "turn"], finished: false });
+    saveTutorial({ version: 2, onboarding: null, onboardingDone: false, competence: NO_TURNS, completed: ["shape", "turn"], finished: false });
+    expect(loadTutorial()).toEqual({
+      version: 2,
+      completed: ["shape", "turn"],
+      finished: false,
+      onboarding: null,
+      onboardingDone: false,
+      competence: NO_TURNS,
+    });
   });
 
   it("round-trips a finished course", () => {
     saveTutorial({
-      version: 1,
+      version: 2,
       completed: ["shape", "turn", "improve", "claims", "win"],
       finished: true,
+      onboarding: null,
+      onboardingDone: true,
+      competence: NO_TURNS,
     });
     expect(loadTutorial().finished).toBe(true);
+  });
+
+  it("round-trips a walkthrough left in the middle", () => {
+    // §3.3: the unit of resume is the phase, so this is the whole of what has
+    // to survive a kill — which path, and which phase of it.
+    saveTutorial({
+      version: 2,
+      completed: [],
+      finished: false,
+      onboarding: { path: "novice", phase: "claim" },
+      onboardingDone: false,
+      competence: NO_TURNS,
+    });
+    expect(loadTutorial().onboarding).toEqual({ path: "novice", phase: "claim" });
+  });
+
+  it("drops a walkthrough position it cannot place, keeping the rest", () => {
+    // A phase renamed between builds costs the learner a restart of a
+    // two-minute walkthrough. Refusing to load their progress would cost more.
+    window.localStorage.setItem(
+      "mahjong:v1:tutorial",
+      JSON.stringify({
+        version: 2,
+        completed: ["shape"],
+        finished: false,
+        onboarding: { path: "novice", phase: 7 },
+        onboardingDone: false,
+      }),
+    );
+    expect(loadTutorial().onboarding).toBeNull();
+    expect(loadTutorial().completed).toEqual(["shape"]);
+  });
+
+  it("treats a v1 blob that finished the course as having been taught", () => {
+    // v1 predates the walkthrough entirely. Somebody who finished the old five
+    // lessons has demonstrably been taught the game and is not offered a first
+    // run; somebody who did not is treated as having no walkthrough behind
+    // them, which is true.
+    window.localStorage.setItem(
+      "mahjong:v1:tutorial",
+      JSON.stringify({ version: 1, completed: ["shape"], finished: true }),
+    );
+    expect(loadTutorial().onboardingDone).toBe(true);
+    window.localStorage.setItem(
+      "mahjong:v1:tutorial",
+      JSON.stringify({ version: 1, completed: ["shape"], finished: false }),
+    );
+    expect(loadTutorial().onboardingDone).toBe(false);
   });
 
   it("falls back to the default and clears the key on malformed JSON", () => {
@@ -240,7 +368,7 @@ describe("tutorial progress", () => {
   it("falls back to the default for an incompatible version", () => {
     window.localStorage.setItem(
       "mahjong:v1:tutorial",
-      JSON.stringify({ version: 2, completed: ["shape"], finished: false }),
+      JSON.stringify({ version: 9, completed: ["shape"], finished: false }),
     );
     expect(loadTutorial()).toEqual(DEFAULT_TUTORIAL);
     expect(window.localStorage.getItem("mahjong:v1:tutorial")).toBeNull();
@@ -273,7 +401,14 @@ describe("tutorial progress", () => {
         finished: false,
       }),
     );
-    expect(loadTutorial()).toEqual({ version: 1, completed: ["shape", "win"], finished: false });
+    expect(loadTutorial()).toEqual({
+      version: 2,
+      completed: ["shape", "win"],
+      finished: false,
+      onboarding: null,
+      onboardingDone: false,
+      competence: NO_TURNS,
+    });
   });
 
   it("collapses duplicate lesson ids", () => {
@@ -285,7 +420,7 @@ describe("tutorial progress", () => {
   });
 
   it("resets to the default on request", () => {
-    saveTutorial({ version: 1, completed: ["shape"], finished: true });
+    saveTutorial({ version: 2, onboarding: null, onboardingDone: false, competence: NO_TURNS, completed: ["shape"], finished: true });
     clearTutorial();
     expect(loadTutorial()).toEqual(DEFAULT_TUTORIAL);
   });
@@ -302,7 +437,7 @@ describe("tutorial progress", () => {
     });
     try {
       expect(() => {
-        saveTutorial({ version: 1, completed: ["shape"], finished: false });
+        saveTutorial({ version: 2, onboarding: null, onboardingDone: false, competence: NO_TURNS, completed: ["shape"], finished: false });
       }).not.toThrow();
     } finally {
       setItem.mockRestore();

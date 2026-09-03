@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { PlayerHand } from "../components/PlayerHand";
 import { tileName } from "../game/labels";
-import { LearnFinish, LearnMenu } from "./LearnMenu";
+import { LearnMenu } from "./LearnMenu";
 import { LESSONS, lessonById } from "./lessons";
 import { OpenSeat } from "./OpenSeat";
 import { PeekHands } from "./PeekHands";
@@ -121,7 +121,11 @@ describe("the Peek control", () => {
         onPeek={null}
       />,
     );
-    expect(markup).not.toContain("Peek hands");
+    // Asserted on the control rather than on its label: the label is copy and
+    // a lesson may legitimately mention Peek in a sentence, but a lesson that
+    // reveals no seat must have no way to open the overlay at all. The absence
+    // of the button is the guarantee.
+    expect(markup).not.toContain("coach__peek");
   });
 
   it("is offered by the coach strip for a lesson that does reveal hands", () => {
@@ -171,7 +175,6 @@ describe("the Learn menu", () => {
   const markup = renderToStaticMarkup(
     <LearnMenu
       completed={new Set(["shape"])}
-      firstRun
       onStart={() => undefined}
       onPlay={() => undefined}
     />,
@@ -193,35 +196,11 @@ describe("the Learn menu", () => {
   });
 
   it("keeps a way out of the lessons on the screen", () => {
-    expect(markup).toContain("Skip to the game");
-  });
-
-  it("stops calling it skipping once the player is coming back to replay one", () => {
-    const returning = renderToStaticMarkup(
-      <LearnMenu
-        completed={new Set(["shape"])}
-        firstRun={false}
-        onStart={() => undefined}
-        onPlay={() => undefined}
-      />,
-    );
-    expect(returning).toContain("Back to the game");
-    expect(returning).not.toContain("Skip to the game");
+    // Always "back", never "skip": #33 made this a reference library reached
+    // from the Menu rather than the first-run router, so everybody who arrives
+    // here already has a table and is returning to it.
+    expect(markup).toContain("Back to the game");
+    expect(markup).not.toContain("Skip to the game");
   });
 });
 
-describe("the graduation screen", () => {
-  const markup = renderToStaticMarkup(<LearnFinish onChoose={() => undefined} />);
-
-  it("names the one rule the beginner table relaxes", () => {
-    // #30: Beginner and Standard must be told apart wherever they differ, and
-    // this is the only screen in the tutorial where the player picks between
-    // them.
-    expect(markup).toContain("faan");
-    expect(markup).toContain("any completed hand may be declared");
-  });
-
-  it("offers the full table as an equal choice", () => {
-    expect(markup).toContain("Start on the full table");
-  });
-});
